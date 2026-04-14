@@ -1,0 +1,104 @@
+package com.smartcampus.backend.entity;
+
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+import java.time.LocalDateTime;
+
+@Document(collection = "users")
+public class User {
+
+    @Id
+    private String id;
+    private String email;
+    private String password;
+    private String fullName;
+    private String studentId;
+    private String phoneNumber;
+    private String department;
+    private UserRole role;
+    private Boolean active;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
+    public User() {}
+
+    public User(String email, String password, String fullName, String studentId, String phoneNumber, String department, UserRole role, Boolean active) {
+        this.email = email;
+        this.password = password;
+        this.fullName = fullName;
+        this.studentId = studentId;
+        this.phoneNumber = phoneNumber;
+        this.department = department;
+        this.role = role;
+        this.active = active;
+    }
+
+    // Getters
+    public String getId() { return id; }
+    public String getEmail() { return email; }
+    public String getPassword() { return password; }
+    public String getFullName() { return fullName; }
+    public String getStudentId() { return studentId; }
+    public String getPhoneNumber() { return phoneNumber; }
+    public String getDepartment() { return department; }
+    public UserRole getRole() { return role; }
+    public Boolean getActive() { return active; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+
+    // Setters
+    public void setId(String id) { this.id = id; }
+    public void setEmail(String email) { this.email = email; }
+    public void setPassword(String password) { this.password = password; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
+    public void setStudentId(String studentId) { this.studentId = studentId; }
+    public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
+    public void setDepartment(String department) { this.department = department; }
+    public void setRole(UserRole role) { this.role = role; }
+    public void setActive(Boolean active) { this.active = active; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    // Builder
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static class Builder {
+        private String id;
+        private String email;
+        private String password;
+        private String fullName;
+        private String studentId;
+        private String phoneNumber;
+        private String department;
+        private UserRole role;
+        private Boolean active;
+        private LocalDateTime createdAt;
+        private LocalDateTime updatedAt;
+
+        public Builder id(String id) { this.id = id; return this; }
+        public Builder email(String email) { this.email = email; return this; }
+        public Builder password(String password) { this.password = password; return this; }
+        public Builder fullName(String fullName) { this.fullName = fullName; return this; }
+        public Builder studentId(String studentId) { this.studentId = studentId; return this; }
+        public Builder phoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; return this; }
+        public Builder department(String department) { this.department = department; return this; }
+        public Builder role(UserRole role) { this.role = role; return this; }
+        public Builder active(Boolean active) { this.active = active; return this; }
+        public Builder createdAt(LocalDateTime createdAt) { this.createdAt = createdAt; return this; }
+        public Builder updatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; return this; }
+
+        public User build() {
+            User user = new User(email, password, fullName, studentId, phoneNumber, department, role, active);
+            user.setId(id);
+            user.setCreatedAt(createdAt);
+            user.setUpdatedAt(updatedAt);
+            return user;
+        }
+    }
+
+    public enum UserRole {
+        USER, ADMIN, TECHNICIAN, MANAGER
+    }
+}
