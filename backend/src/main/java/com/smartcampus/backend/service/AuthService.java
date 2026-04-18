@@ -1,6 +1,7 @@
 package com.smartcampus.backend.service;
 
 import com.smartcampus.backend.dto.ForgotPasswordRequest;
+import com.smartcampus.backend.dto.GoogleOAuthRequest;
 import com.smartcampus.backend.dto.LoginRequest;
 import com.smartcampus.backend.dto.ResetPasswordRequest;
 import com.smartcampus.backend.dto.SignupRequest;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Base64;
 
 @Service
 public class AuthService {
@@ -38,6 +40,9 @@ public class AuthService {
 
     @Autowired
     private EmailService emailService;
+
+    @org.springframework.beans.factory.annotation.Value("${app.google.client-id}")
+    private String googleClientId;
 
     @Transactional
     public AuthResponse signup(SignupRequest signupRequest) {
@@ -224,4 +229,89 @@ public class AuthService {
 
         return Map.of("message", "Password updated successfully. You can now sign in.");
     }
+
+    @Transactional
+    public AuthResponse googleOAuth(GoogleOAuthRequest request) {
+        try {
+            // Decode Google ID Token (JWT format)
+            String token = request.getToken();
+            String[] parts = token.split("\\.");
+            
+            if (parts.length != 3) {
+                throw new BadRequestException("Invalid Google token format");
+            }
+            
+            // Decode payload (second part)
+            String payload = new String(Base64.getUrlDecoder().decode(parts[1]));
+            
+            // Parse JSON payload
+            String email = extractFieldFromJson(payload, "email");
+            String name = extractFieldFromJson(payload, "name");
+            
+            if (email == null || email.isEmpty()) {
+                throw new BadRequestException("Invalid Google token - missing email");
+            }
+            
+            // Check if user exists
+            User user = userRepository.findByEmailIgnoreCase(email).orElse(null);
+
+            if (user == null) {
+                // Auto-create new user with Google OAuth
+                String userRole = (request.getRole() != null && !request.getRole().isEmpty()) 
+                    ? request.getRole() 
+                    : "STUDENT"; // Default role for Google OAuth users
+
+                user = User.builder()
+                        .email(email)
+                        .fullName(name != null ? name : "Google User")
+                        .role(User.UserRole.valueOf(userRole))
+                        .password(passwordEncoder.encode(UUID.randomUUID().toString())) // Random password for OAuth users
+                        .active(true)
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .build();
+
+                user = userRepository.save(user);
+            }
+
+            // Check if user is active
+            if (!Boolean.TRUE.equals(user.getActive())) {
+                throw new BadRequestException("User account is inactive");
+            }
+
+            // Generate JWT token
+            String jwtToken = jwtTokenProvider.generateToken(user.getId());
+
+            return AuthResponse.builder()
+                    .token(jwtToken)
+                    .type("Bearer")
+                    .userId(user.getId())
+                    .email(user.getEmail())
+                    .fullName(user.getFullName())
+                    .role(user.getRole().name())
+                    .message("Google login successful")
+                    .build();
+
+        } catch (BadRequestException ex) {
+            throw ex;
+        } catch (Exception e) {
+            throw new BadRequestException("Invalid Google token: " + e.getMessage());
+        }
+    }
+    
+    // Helper method to extract fields from JSON string
+    private String extractFieldFromJson(String json, String fieldName) {
+        String searchKey = "\"" + fieldName + "\":\"";
+        int startIdx = json.indexOf(searchKey);
+        if (startIdx == -1) {
+            return null;
+        }
+        startIdx += searchKey.length();
+        int endIdx = json.indexOf("\"", startIdx);
+        if (endIdx == -1) {
+            return null;
+        }
+        return json.substring(startIdx, endIdx);
+    }
 }
+
