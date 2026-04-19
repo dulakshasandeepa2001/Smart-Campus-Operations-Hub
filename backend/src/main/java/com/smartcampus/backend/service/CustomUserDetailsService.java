@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Optional;
 
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
@@ -22,9 +23,17 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     @Transactional
-    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        // Try to find by email first
+        Optional<User> userOptional = userRepository.findByEmail(username);
+        
+        // If not found by email, try to find by lectureMail (for lecturers)
+        if (userOptional.isEmpty()) {
+            userOptional = userRepository.findByLectureMail(username);
+        }
+        
+        User user = userOptional
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with email or lecture mail: " + username));
 
         return new CustomUserDetails(user);
     }

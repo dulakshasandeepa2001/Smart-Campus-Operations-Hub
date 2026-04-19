@@ -19,15 +19,21 @@ public class SignupRequest {
     @NotBlank(message = "Full name is required")
     private String fullName;
 
-    @NotBlank(message = "Student ID is required")
     private String studentId;
-
     private String phoneNumber;
     private String department;
+    
+    private String lecturerId;
+    private String lectureMail;
+    
+    private String technicianId;
+    private String privateMail;
+    
+    private String role;
 
     public SignupRequest() {}
 
-    public SignupRequest(String email, String password, String confirmPassword, String fullName, String studentId, String phoneNumber, String department) {
+    public SignupRequest(String email, String password, String confirmPassword, String fullName, String studentId, String phoneNumber, String department, String lecturerId, String lectureMail, String technicianId, String privateMail, String role) {
         this.email = email;
         this.password = password;
         this.confirmPassword = confirmPassword;
@@ -35,6 +41,11 @@ public class SignupRequest {
         this.studentId = studentId;
         this.phoneNumber = phoneNumber;
         this.department = department;
+        this.lecturerId = lecturerId;
+        this.lectureMail = lectureMail;
+        this.technicianId = technicianId;
+        this.privateMail = privateMail;
+        this.role = role;
     }
 
     public String getEmail() { return email; }
@@ -57,6 +68,21 @@ public class SignupRequest {
     
     public String getDepartment() { return department; }
     public void setDepartment(String department) { this.department = department; }
+    
+    public String getLecturerId() { return lecturerId; }
+    public void setLecturerId(String lecturerId) { this.lecturerId = lecturerId; }
+    
+    public String getLectureMail() { return lectureMail; }
+    public void setLectureMail(String lectureMail) { this.lectureMail = lectureMail; }
+    
+    public String getTechnicianId() { return technicianId; }
+    public void setTechnicianId(String technicianId) { this.technicianId = technicianId; }
+    
+    public String getPrivateMail() { return privateMail; }
+    public void setPrivateMail(String privateMail) { this.privateMail = privateMail; }
+    
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
 
     public static Builder builder() {
         return new Builder();
@@ -70,6 +96,11 @@ public class SignupRequest {
         private String studentId;
         private String phoneNumber;
         private String department;
+        private String lecturerId;
+        private String lectureMail;
+        private String technicianId;
+        private String privateMail;
+        private String role;
 
         public Builder email(String email) { this.email = email; return this; }
         public Builder password(String password) { this.password = password; return this; }
@@ -78,9 +109,14 @@ public class SignupRequest {
         public Builder studentId(String studentId) { this.studentId = studentId; return this; }
         public Builder phoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; return this; }
         public Builder department(String department) { this.department = department; return this; }
+        public Builder lecturerId(String lecturerId) { this.lecturerId = lecturerId; return this; }
+        public Builder lectureMail(String lectureMail) { this.lectureMail = lectureMail; return this; }
+        public Builder technicianId(String technicianId) { this.technicianId = technicianId; return this; }
+        public Builder privateMail(String privateMail) { this.privateMail = privateMail; return this; }
+        public Builder role(String role) { this.role = role; return this; }
 
         public SignupRequest build() {
-            return new SignupRequest(email, password, confirmPassword, fullName, studentId, phoneNumber, department);
+            return new SignupRequest(email, password, confirmPassword, fullName, studentId, phoneNumber, department, lecturerId, lectureMail, technicianId, privateMail, role);
         }
     }
 }

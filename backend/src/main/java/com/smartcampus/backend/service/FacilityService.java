@@ -151,6 +151,13 @@ public class FacilityService {
         facilityRepository.delete(facility);
     }
 
+    public List<FacilityDTO> getActiveFacilities() {
+        return facilityRepository.findByStatus(Facility.FacilityStatus.ACTIVE)
+                .stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
     private FacilityDTO convertToDTO(Facility facility) {
         return FacilityDTO.builder()
                 .id(facility.getId())
