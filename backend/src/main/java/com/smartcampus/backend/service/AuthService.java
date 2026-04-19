@@ -44,9 +44,27 @@ public class AuthService {
             throw new BadRequestException("Email is already registered");
         }
 
-        // Check if student ID already exists
-        if (userRepository.existsByStudentId(signupRequest.getStudentId())) {
-            throw new BadRequestException("Student ID is already registered");
+        // Check if trying to create multiple admins
+        if ("ADMIN".equals(signupRequest.getRole())) {
+            long adminCount = userRepository.countByRole(User.UserRole.ADMIN);
+            if (adminCount > 0) {
+                throw new BadRequestException("Only one administrator account is allowed in the system");
+            }
+        }
+
+        // Check role-specific ID uniqueness
+        if ("STUDENT".equals(signupRequest.getRole()) && signupRequest.getStudentId() != null) {
+            if (userRepository.existsByStudentId(signupRequest.getStudentId())) {
+                throw new BadRequestException("Student ID is already registered");
+            }
+        } else if ("LECTURER".equals(signupRequest.getRole()) && signupRequest.getLecturerId() != null) {
+            if (userRepository.existsByLecturerId(signupRequest.getLecturerId())) {
+                throw new BadRequestException("Lecture ID is already registered");
+            }
+        } else if ("TECHNICIAN".equals(signupRequest.getRole()) && signupRequest.getTechnicianId() != null) {
+            if (userRepository.existsByTechnicianId(signupRequest.getTechnicianId())) {
+                throw new BadRequestException("Technician ID is already registered");
+            }
         }
 
         // Create new user
@@ -57,7 +75,11 @@ public class AuthService {
                 .studentId(signupRequest.getStudentId())
                 .phoneNumber(signupRequest.getPhoneNumber())
                 .department(signupRequest.getDepartment())
-                .role(User.UserRole.USER)
+                .lecturerId(signupRequest.getLecturerId())
+                .lectureMail(signupRequest.getLectureMail())
+                .technicianId(signupRequest.getTechnicianId())
+                .privateMail(signupRequest.getPrivateMail())
+                .role(User.UserRole.valueOf(signupRequest.getRole() != null ? signupRequest.getRole() : "STUDENT"))
                 .active(true)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
