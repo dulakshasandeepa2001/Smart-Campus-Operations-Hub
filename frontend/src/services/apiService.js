@@ -6,6 +6,7 @@ const API_URL = 'http://localhost:8080/api';
 const PUBLIC_API_PATHS = [
   '/auth/signup',
   '/auth/login',
+  '/auth/google',
   '/auth/forgot-password',
   '/auth/reset-password',
   '/invitations/accept',
