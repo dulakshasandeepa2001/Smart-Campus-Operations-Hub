@@ -61,6 +61,14 @@ export default function LecturerDashboard() {
     setSelectedFacility(facility);
     setShowBookingModal(true);
     setBookingError('');
+    // Set default date to current system date and times: 8:00 AM start, 8:00 PM end
+    const today = new Date().toISOString().split('T')[0];
+    setBookingForm(prev => ({
+      ...prev,
+      bookingDate: today,
+      startTime: '08:00',
+      endTime: '20:00'
+    }));
   };
 
   const closeBookingModal = () => {
@@ -95,23 +103,15 @@ export default function LecturerDashboard() {
       return;
     }
 
-    if (parseInt(bookingForm.expectedAttendees) > selectedFacility.capacity) {
-      setBookingError(`Expected attendees cannot exceed facility capacity (${selectedFacility.capacity})`);
+    // Validate start time is at least 8:00 AM
+    if (bookingForm.startTime < '08:00') {
+      setBookingError('Start time must be at least 8:00 AM');
       return;
     }
 
-    if (bookingForm.startTime >= bookingForm.endTime) {
-      setBookingError('End time must be after start time');
-      return;
-    }
-
-  const handleBookingSubmit = async (e) => {
-    e.preventDefault();
-    setBookingError('');
-
-    // Validation
-    if (!bookingForm.bookingDate || !bookingForm.startTime || !bookingForm.endTime || !bookingForm.expectedAttendees || !bookingForm.purpose) {
-      setBookingError('Please fill in all required fields');
+    // Validate end time is at most 8:00 PM
+    if (bookingForm.endTime > '20:00') {
+      setBookingError('End time must be at most 8:00 PM');
       return;
     }
 
@@ -159,7 +159,6 @@ export default function LecturerDashboard() {
     } finally {
       setBookingLoading(false);
     }
-  };
   };
 
   const stats = {
@@ -386,6 +385,8 @@ export default function LecturerDashboard() {
                     name="startTime"
                     value={bookingForm.startTime}
                     onChange={handleBookingFormChange}
+                    min="08:00"
+                    max="20:00"
                     required
                   />
                 </div>
@@ -397,6 +398,8 @@ export default function LecturerDashboard() {
                     name="endTime"
                     value={bookingForm.endTime}
                     onChange={handleBookingFormChange}
+                    min="08:00"
+                    max="20:00"
                     required
                   />
                 </div>
@@ -415,7 +418,11 @@ export default function LecturerDashboard() {
                     max={selectedFacility.capacity}
                     required
                   />
-                  <small>Max: {selectedFacility.capacity}</small>
+                  {parseInt(bookingForm.expectedAttendees) > selectedFacility.capacity ? (
+                    <small style={{ color: 'red', fontWeight: 'bold' }}>Max: {selectedFacility.capacity}</small>
+                  ) : (
+                    <small>Max: {selectedFacility.capacity}</small>
+                  )}
                 </div>
                 <div className="form-group">
                   <label htmlFor="subject">Subject</label>
