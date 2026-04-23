@@ -102,17 +102,6 @@ public class BookingService {
                     );
                 }
             }
-            
-            // Check for time conflicts
-            List<Booking> conflicts = bookingRepository.findConflictingBookings(
-                    request.getFacilityId(),
-                    request.getBookingStart(),
-                    request.getBookingEnd()
-            );
-
-            if (!conflicts.isEmpty()) {
-                throw new BadRequestException("This facility has a conflict with existing bookings during the selected time");
-            }
 
             // Validate booking end is after start
             if (request.getBookingEnd().isBefore(request.getBookingStart())) {
@@ -120,6 +109,18 @@ public class BookingService {
             }
         } else if (!"ADMIN".equals(user.getRole().name())) {
             throw new BadRequestException("Only students, lecturers, and admins can make bookings");
+        }
+
+        // Prevent creating a new booking when a confirmed approved booking already exists for the same facility and time range.
+        if (request.getBookingStart() != null && request.getBookingEnd() != null) {
+            List<Booking> approvedConflicts = bookingRepository.findApprovedConflictingBookings(
+                    request.getFacilityId(),
+                    request.getBookingStart(),
+                    request.getBookingEnd()
+            );
+            if (!approvedConflicts.isEmpty()) {
+                throw new BadRequestException("This resource is not available at the selected time period.");
+            }
         }
 
         // Create booking
@@ -202,16 +203,16 @@ public class BookingService {
             );
         }
 
-        List<Booking> conflicts = bookingRepository.findConflictingBookings(
-                request.getFacilityId(),
-                request.getBookingStart(),
-                request.getBookingEnd()
-        ).stream()
-          .filter(conflict -> !conflict.getId().equals(bookingId))
-          .collect(Collectors.toList());
+        if (request.getBookingStart() != null && request.getBookingEnd() != null) {
+            List<Booking> approvedConflicts = bookingRepository.findApprovedConflictingBookings(
+                    request.getFacilityId(),
+                    request.getBookingStart(),
+                    request.getBookingEnd()
+            );
 
-        if (!conflicts.isEmpty()) {
-            throw new BadRequestException("This facility has a conflict with existing bookings during the selected time");
+            if (!approvedConflicts.isEmpty()) {
+                throw new BadRequestException("This resource is not available at the selected time period.");
+            }
         }
 
         booking.setFacilityId(request.getFacilityId());
@@ -260,6 +261,20 @@ public class BookingService {
     public BookingDTO updateBookingStatus(String bookingId, UpdateBookingStatusRequest request) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+
+        if (request.getStatus() == Booking.BookingStatus.APPROVED
+                && booking.getBookingStart() != null
+                && booking.getBookingEnd() != null) {
+            List<Booking> approvedConflicts = bookingRepository.findApprovedConflictingBookingsExcluding(
+                    booking.getFacilityId(),
+                    booking.getBookingStart(),
+                    booking.getBookingEnd(),
+                    bookingId
+            );
+            if (!approvedConflicts.isEmpty()) {
+                throw new BadRequestException("This resource is not available at the selected time period.");
+            }
+        }
 
         booking.setStatus(request.getStatus());
         if (request.getRejectionReason() != null) {
@@ -350,6 +365,22 @@ public class BookingService {
         Facility facility = facilityRepository.findById(booking.getFacilityId()).orElse(null);
         String facilityName = facility != null ? facility.getName() : "Unknown";
         return convertToDTO(updatedBooking, facilityName);
+    }
+
+    @Transactional
+    public void deleteBooking(String userId, String bookingId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+
+        if (!booking.getUserId().equals(userId)) {
+            throw new BadRequestException("You can only delete your own booking requests");
+        }
+
+        if (!booking.getStatus().equals(Booking.BookingStatus.PENDING)) {
+            throw new BadRequestException("Only pending bookings can be deleted");
+        }
+
+        bookingRepository.deleteById(bookingId);
     }
 
     private BookingDTO convertToDTO(Booking booking, String facilityName) {

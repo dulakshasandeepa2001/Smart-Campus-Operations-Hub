@@ -558,6 +558,11 @@
   align-items: center;
 }
 
+.delete-booking-button {
+  display: inline-flex;
+  align-items: center;
+}
+
 .facilities-categories {
   display: grid;
   gap: 3rem;

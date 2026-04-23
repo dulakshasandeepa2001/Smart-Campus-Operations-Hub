@@ -67,7 +67,12 @@ export default function AdminDashboard() {
       fetchData();
       alert('Booking approved!');
     } catch (error) {
-      alert('Error approving booking: ' + error.message);
+      // Handle specific error messages from backend
+      if (error.response?.data?.message) {
+        alert(error.response.data.message);
+      } else {
+        alert('Error approving booking: ' + error.message);
+      }
     }
   };
 
@@ -252,7 +257,7 @@ export default function AdminDashboard() {
                     </div>
                     <p><strong>Purpose:</strong> {booking.purpose}</p>
                     <p><strong>Date:</strong> {new Date(booking.bookingStart).toLocaleDateString()}</p>
-                    <p><strong>Time:</strong> {new Date(booking.bookingStart).toLocaleTimeString()} - {new Date(booking.bookingEnd).toLocaleTimeString()}</p>
+                    <p><strong>Time:</strong> {new Date(booking.bookingStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(booking.bookingEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                     <p><strong>Attendees:</strong> {booking.expectedAttendees}</p>
                     <div className="booking-actions">
                       <button className="btn-success" onClick={() => handleApproveBooking(booking.id)}>Approve</button>

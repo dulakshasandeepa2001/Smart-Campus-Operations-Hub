@@ -18,5 +18,10 @@ public interface BookingRepository extends MongoRepository<Booking, String> {
     @Query("{ 'facilityId': ?0, 'status': 'APPROVED', '$or': [" +
            "{ 'bookingStart': { '$lt': ?2 }, 'bookingEnd': { '$gt': ?1 } }" +
            "] }")
-    List<Booking> findConflictingBookings(String facilityId, LocalDateTime start, LocalDateTime end);
+    List<Booking> findApprovedConflictingBookings(String facilityId, LocalDateTime start, LocalDateTime end);
+
+    @Query("{ 'facilityId': ?0, 'status': 'APPROVED', '_id': { '$ne': ?3 }, '$or': [" +
+           "{ 'bookingStart': { '$lt': ?2 }, 'bookingEnd': { '$gt': ?1 } }" +
+           "] }")
+    List<Booking> findApprovedConflictingBookingsExcluding(String facilityId, LocalDateTime start, LocalDateTime end, String excludeBookingId);
 }

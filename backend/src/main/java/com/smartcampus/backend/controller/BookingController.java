@@ -78,4 +78,14 @@ public class BookingController {
         BookingDTO booking = bookingService.cancelBooking(bookingId);
         return new ResponseEntity<>(booking, HttpStatus.OK);
     }
+
+    @DeleteMapping("/{bookingId}")
+    public ResponseEntity<Map<String, String>> deleteBooking(
+            @PathVariable String bookingId,
+            @RequestHeader("X-User-Id") String userId) {
+        bookingService.deleteBooking(userId, bookingId);
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Booking deleted successfully");
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
 }

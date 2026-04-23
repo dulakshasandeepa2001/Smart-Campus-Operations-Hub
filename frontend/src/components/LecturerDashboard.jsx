@@ -58,6 +58,18 @@ export default function LecturerDashboard() {
     }
   };
 
+  const handleDeleteBooking = async (bookingId) => {
+    if (window.confirm('Are you sure you want to delete this booking request? This action cannot be undone.')) {
+      try {
+        await apiService.delete(`/bookings/${bookingId}`);
+        fetchData();
+        alert('✅ Booking request deleted successfully!');
+      } catch (error) {
+        alert('Error deleting booking: ' + error.message);
+      }
+    }
+  };
+
   const parseLocalDateTime = (datetime) => {
     if (!datetime) return null;
     const cleaned = datetime.toString().replace(/Z$/, '').replace(/([+-]\d{2}:?\d{2})$/, '');
@@ -358,6 +370,10 @@ export default function LecturerDashboard() {
                         <button className="btn-secondary edit-booking-button" onClick={() => openEditBookingModal(booking)}>
                           <span aria-hidden="true" style={{ marginRight: '0.5rem' }}>✏️</span>
                           Edit Booking
+                        </button>
+                        <button className="btn-danger delete-booking-button" onClick={() => handleDeleteBooking(booking.id)}>
+                          <span aria-hidden="true" style={{ marginRight: '0.5rem' }}>🗑️</span>
+                          Delete
                         </button>
                       </div>
                     )}
