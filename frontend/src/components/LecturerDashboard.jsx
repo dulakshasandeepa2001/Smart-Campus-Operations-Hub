@@ -12,6 +12,7 @@ export default function LecturerDashboard() {
   const [loading, setLoading] = useState(true);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedFacility, setSelectedFacility] = useState(null);
+  const [editingBooking, setEditingBooking] = useState(null);
   const [bookingForm, setBookingForm] = useState({
     bookingDate: '',
     startTime: '',
@@ -57,23 +58,91 @@ export default function LecturerDashboard() {
     }
   };
 
+  const parseLocalDateTime = (datetime) => {
+    if (!datetime) return null;
+    const cleaned = datetime.toString().replace(/Z$/, '').replace(/([+-]\d{2}:?\d{2})$/, '');
+    const [datePart, timePart] = cleaned.split('T');
+    if (!datePart || !timePart) return null;
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hour, minute, second = '00'] = timePart.split(':');
+    return new Date(year, month - 1, day, Number(hour), Number(minute), Number(second));
+  };
+
+  const formatDate = (datetime) => {
+    const dateObj = parseLocalDateTime(datetime);
+    if (!dateObj) return '';
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const extractTimeString = (datetime) => {
+    if (!datetime) return '';
+    const cleaned = datetime.toString().replace(/Z$/, '').replace(/([+-]\d{2}:?\d{2})$/, '');
+    const [datePart, timePart] = cleaned.split('T');
+    if (!timePart) return '';
+    const [hour, minute] = timePart.split(':');
+    return `${hour}:${minute}`;
+  };
+
+  const formatTime = (datetime) => {
+    const dateObj = parseLocalDateTime(datetime);
+    if (!dateObj) return '';
+    return dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const getFacilityCapacity = (facilityId) => {
+    const facility = facilities.find(f => f.id === facilityId);
+    return facility?.capacity ?? 'N/A';
+  };
+
   const openBookingModal = (facility) => {
+    setEditingBooking(null);
     setSelectedFacility(facility);
     setShowBookingModal(true);
     setBookingError('');
-    // Set default date to current system date and times: 8:00 AM start, 8:00 PM end
     const today = new Date().toISOString().split('T')[0];
     setBookingForm(prev => ({
       ...prev,
       bookingDate: today,
       startTime: '08:00',
-      endTime: '20:00'
+      endTime: '20:00',
+      expectedAttendees: '',
+      purpose: '',
+      subject: ''
     }));
+  };
+
+  const openEditBookingModal = (booking) => {
+    const facility = facilities.find(f => f.id === booking.facilityId) || {
+      id: booking.facilityId,
+      name: booking.facilityName,
+      capacity: booking.expectedAttendees || 1,
+      type: 'LECTURE_HALL',
+      building: '',
+      floor: '',
+      equipment: ''
+    };
+
+    setEditingBooking(booking);
+    setSelectedFacility(facility);
+    setShowBookingModal(true);
+    setBookingError('');
+    setBookingForm({
+      bookingDate: formatDate(booking.bookingStart),
+      startTime: extractTimeString(booking.bookingStart),
+      endTime: extractTimeString(booking.bookingEnd),
+      expectedAttendees: booking.expectedAttendees?.toString() || '',
+      purpose: booking.purpose || '',
+      subject: booking.subject || ''
+    });
   };
 
   const closeBookingModal = () => {
     setShowBookingModal(false);
     setSelectedFacility(null);
+    setEditingBooking(null);
     setBookingForm({
       bookingDate: '',
       startTime: '',
@@ -136,22 +205,28 @@ export default function LecturerDashboard() {
 
     try {
       setBookingLoading(true);
-      const bookingStart = new Date(`${bookingForm.bookingDate}T${bookingForm.startTime}`);
-      const bookingEnd = new Date(`${bookingForm.bookingDate}T${bookingForm.endTime}`);
+      const bookingStartLocal = `${bookingForm.bookingDate}T${bookingForm.startTime}:00`;
+      const bookingEndLocal = `${bookingForm.bookingDate}T${bookingForm.endTime}:00`;
 
       const bookingData = {
         facilityId: selectedFacility.id,
         facilityName: selectedFacility.name,
-        bookingStart: bookingStart.toISOString(),
-        bookingEnd: bookingEnd.toISOString(),
+        bookingStart: bookingStartLocal,
+        bookingEnd: bookingEndLocal,
         expectedAttendees: parseInt(bookingForm.expectedAttendees),
         purpose: bookingForm.purpose,
         subject: bookingForm.subject || bookingForm.purpose,
         isFullFacility: isFullFacility
       };
 
-      await apiService.post('/bookings', bookingData);
-      alert('✅ Booking request submitted! Waiting for admin approval.');
+      if (editingBooking) {
+        await apiService.put(`/bookings/${editingBooking.id}`, bookingData);
+        alert('✅ Booking request updated! Waiting for admin approval.');
+      } else {
+        await apiService.post('/bookings', bookingData);
+        alert('✅ Booking request submitted! Waiting for admin approval.');
+      }
+
       closeBookingModal();
       fetchData();
     } catch (error) {
@@ -228,16 +303,16 @@ export default function LecturerDashboard() {
                 <h3>📚 Upcoming Classes</h3>
                 <div className="schedule-list">
                   {myBookings
-                    .filter(b => b.status === 'APPROVED' && new Date(b.bookingStart) > new Date())
+                    .filter(b => b.status === 'APPROVED' && parseLocalDateTime(b.bookingStart) > new Date())
                     .slice(0, 5)
                     .map(booking => (
                       <div key={booking.id} className="schedule-item">
                         <strong>{booking.facilityName}</strong>
-                        <p>{new Date(booking.bookingStart).toLocaleDateString()} at {new Date(booking.bookingStart).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                        <p>{formatDate(booking.bookingStart)} at {formatTime(booking.bookingStart)}</p>
                         <small>{booking.expectedAttendees} expected attendees</small>
                       </div>
                     ))}
-                  {myBookings.filter(b => b.status === 'APPROVED' && new Date(b.bookingStart) > new Date()).length === 0 && (
+                  {myBookings.filter(b => b.status === 'APPROVED' && parseLocalDateTime(b.bookingStart) > new Date()).length === 0 && (
                     <p className="empty-message">No upcoming classes scheduled</p>
                   )}
                 </div>
@@ -270,14 +345,22 @@ export default function LecturerDashboard() {
                       <span className={`status ${booking.status}`}>{booking.status}</span>
                     </div>
                     <div className="class-details">
-                      <p><strong>📅 Date:</strong> {new Date(booking.bookingStart).toLocaleDateString()}</p>
-                      <p><strong>🕐 Time:</strong> {new Date(booking.bookingStart).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {new Date(booking.bookingEnd).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-                      <p><strong>👥 Capacity:</strong> {booking.expectedAttendees}/50</p>
+                      <p><strong>📅 Date:</strong> {formatDate(booking.bookingStart)}</p>
+                      <p><strong>🕐 Time:</strong> {formatTime(booking.bookingStart)} - {formatTime(booking.bookingEnd)}</p>
+                      <p><strong>👥 Capacity:</strong> {booking.expectedAttendees}/{getFacilityCapacity(booking.facilityId)}</p>
                       <p><strong>📝 Purpose:</strong> {booking.purpose}</p>
                       {booking.status === 'REJECTED' && booking.rejectionReason && (
                         <p className="rejection-reason"><strong>❌ Reason:</strong> {booking.rejectionReason}</p>
                       )}
                     </div>
+                    {booking.status === 'PENDING' && (
+                      <div className="class-actions pending-actions">
+                        <button className="btn-secondary edit-booking-button" onClick={() => openEditBookingModal(booking)}>
+                          <span aria-hidden="true" style={{ marginRight: '0.5rem' }}>✏️</span>
+                          Edit Booking
+                        </button>
+                      </div>
+                    )}
                     {booking.status === 'APPROVED' && (
                       <div className="class-actions">
                         <button className="btn-secondary">View Details</button>
@@ -341,7 +424,7 @@ export default function LecturerDashboard() {
         <div className="modal-overlay" onClick={closeBookingModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Book {selectedFacility.name}</h2>
+              <h2>{editingBooking ? `Edit ${selectedFacility.name} Booking` : `Book ${selectedFacility.name}`}</h2>
               <button className="modal-close" onClick={closeBookingModal}>✕</button>
             </div>
 
@@ -452,7 +535,7 @@ export default function LecturerDashboard() {
 
               <div className="form-actions">
                 <button type="submit" className="btn-primary" disabled={bookingLoading}>
-                  {bookingLoading ? 'Submitting...' : 'Submit Booking Request'}
+                  {bookingLoading ? 'Saving...' : editingBooking ? 'Update Booking Request' : 'Submit Booking Request'}
                 </button>
                 <button type="button" className="btn-secondary" onClick={closeBookingModal}>
                   Cancel

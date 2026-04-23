@@ -55,6 +55,15 @@ public class BookingController {
         return new ResponseEntity<>(bookings, HttpStatus.OK);
     }
 
+    @PutMapping("/{bookingId}")
+    public ResponseEntity<BookingDTO> updateBooking(
+            @PathVariable String bookingId,
+            @Valid @RequestBody CreateBookingRequest request,
+            @RequestHeader("X-User-Id") String userId) {
+        BookingDTO booking = bookingService.updateBooking(userId, bookingId, request);
+        return new ResponseEntity<>(booking, HttpStatus.OK);
+    }
+
     @PutMapping("/{bookingId}/status")
     @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<BookingDTO> updateBookingStatus(

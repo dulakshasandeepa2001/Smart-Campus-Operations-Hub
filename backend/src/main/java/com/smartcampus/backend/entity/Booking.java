@@ -17,6 +17,7 @@ public class Booking {
     private LocalDateTime bookingEnd;
     private BookingStatus status;
     private String purpose;
+    private String subject;
     private Integer expectedAttendees;
     private Integer numberOfSeats;  // For student seat bookings
     private List<Integer> seatNumbers;  // Specific seat numbers booked by student
@@ -68,6 +69,7 @@ public class Booking {
     public LocalDateTime getBookingEnd() { return bookingEnd; }
     public BookingStatus getStatus() { return status; }
     public String getPurpose() { return purpose; }
+    public String getSubject() { return subject; }
     public Integer getExpectedAttendees() { return expectedAttendees; }
     public Integer getNumberOfSeats() { return numberOfSeats; }
     public List<Integer> getSeatNumbers() { return seatNumbers; }
@@ -87,6 +89,7 @@ public class Booking {
     public void setBookingEnd(LocalDateTime bookingEnd) { this.bookingEnd = bookingEnd; }
     public void setStatus(BookingStatus status) { this.status = status; }
     public void setPurpose(String purpose) { this.purpose = purpose; }
+    public void setSubject(String subject) { this.subject = subject; }
     public void setExpectedAttendees(Integer expectedAttendees) { this.expectedAttendees = expectedAttendees; }
     public void setNumberOfSeats(Integer numberOfSeats) { this.numberOfSeats = numberOfSeats; }
     public void setSeatNumbers(List<Integer> seatNumbers) { this.seatNumbers = seatNumbers; }

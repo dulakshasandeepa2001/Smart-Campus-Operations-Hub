@@ -4,14 +4,17 @@ import java.time.LocalDateTime;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import java.util.List;
 
 public class CreateBookingRequest {
     @NotBlank(message = "Facility ID is required")
     private String facilityId;
 
+    @JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime bookingStart;  // Optional for seat bookings (students)
 
+    @JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime bookingEnd;    // Optional for seat bookings (students)
 
     @NotBlank(message = "Purpose is required")

@@ -169,6 +169,64 @@ public class BookingService {
         return convertToDTO(booking, facilityName);
     }
 
+    @Transactional
+    public BookingDTO updateBooking(String userId, String bookingId, CreateBookingRequest request) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+
+        if (!booking.getUserId().equals(userId)) {
+            throw new BadRequestException("You can only edit your own booking requests");
+        }
+
+        if (!booking.getStatus().equals(Booking.BookingStatus.PENDING)) {
+            throw new BadRequestException("Only pending bookings can be edited");
+        }
+
+        Facility facility = facilityRepository.findById(request.getFacilityId())
+                .orElseThrow(() -> new ResourceNotFoundException("Facility not found"));
+
+        if (request.getBookingStart() == null || request.getBookingEnd() == null) {
+            throw new BadRequestException("Lecturers must specify booking start and end times");
+        }
+
+        if (request.getBookingEnd().isBefore(request.getBookingStart())) {
+            throw new BadRequestException("Booking end time must be after start time");
+        }
+
+        boolean isFullFacilityBooking = request.getExpectedAttendees() != null &&
+                                       request.getExpectedAttendees() > (facility.getCapacity() / 2);
+
+        if (isFullFacilityBooking && !isLecturerFullFacilityAllowed(facility.getType())) {
+            throw new BadRequestException(
+                    "❌ Lecturers can only book full Lecture Halls and Labs, not " + facility.getType()
+            );
+        }
+
+        List<Booking> conflicts = bookingRepository.findConflictingBookings(
+                request.getFacilityId(),
+                request.getBookingStart(),
+                request.getBookingEnd()
+        ).stream()
+          .filter(conflict -> !conflict.getId().equals(bookingId))
+          .collect(Collectors.toList());
+
+        if (!conflicts.isEmpty()) {
+            throw new BadRequestException("This facility has a conflict with existing bookings during the selected time");
+        }
+
+        booking.setFacilityId(request.getFacilityId());
+        booking.setFacilityName(request.getFacilityName() != null ? request.getFacilityName() : facility.getName());
+        booking.setBookingStart(request.getBookingStart());
+        booking.setBookingEnd(request.getBookingEnd());
+        booking.setExpectedAttendees(request.getExpectedAttendees());
+        booking.setPurpose(request.getPurpose());
+        booking.setSubject(request.getSubject());
+        booking.setUpdatedAt(LocalDateTime.now());
+
+        Booking updatedBooking = bookingRepository.save(booking);
+        return convertToDTO(updatedBooking, booking.getFacilityName());
+    }
+
     public List<BookingDTO> getUserBookings(String userId) {
         return bookingRepository.findByUserIdOrderByBookingStartDesc(userId)
                 .stream()
@@ -304,6 +362,7 @@ public class BookingService {
         dto.setStatus(booking.getStatus());
         dto.setPurpose(booking.getPurpose());
         dto.setExpectedAttendees(booking.getExpectedAttendees());
+        dto.setSubject(booking.getSubject());
         dto.setNumberOfSeats(booking.getNumberOfSeats());
         dto.setSeatNumbers(booking.getSeatNumbers());
         dto.setRejectionReason(booking.getRejectionReason());

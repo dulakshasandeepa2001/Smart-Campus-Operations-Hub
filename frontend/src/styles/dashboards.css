@@ -549,6 +549,15 @@
   margin-top: 1rem;
 }
 
+.class-actions.pending-actions {
+  justify-content: flex-end;
+}
+
+.edit-booking-button {
+  display: inline-flex;
+  align-items: center;
+}
+
 .facilities-categories {
   display: grid;
   gap: 3rem;

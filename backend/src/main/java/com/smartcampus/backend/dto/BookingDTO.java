@@ -1,6 +1,7 @@
 package com.smartcampus.backend.dto;
 
 import com.smartcampus.backend.entity.Booking.BookingStatus;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -8,14 +9,18 @@ public class BookingDTO {
     private String id;
     private String facilityId;
     private String userId;
+    @JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime bookingStart;
+    @JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime bookingEnd;
     private BookingStatus status;
     private String purpose;
+    private String subject;
     private Integer expectedAttendees;
     private Integer numberOfSeats;
     private List<Integer> seatNumbers;
     private String rejectionReason;
+    @JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime createdAt;
     private String facilityName;
 
@@ -56,6 +61,9 @@ public class BookingDTO {
     
     public String getPurpose() { return purpose; }
     public void setPurpose(String purpose) { this.purpose = purpose; }
+
+    public String getSubject() { return subject; }
+    public void setSubject(String subject) { this.subject = subject; }
     
     public Integer getExpectedAttendees() { return expectedAttendees; }
     public void setExpectedAttendees(Integer expectedAttendees) { this.expectedAttendees = expectedAttendees; }
