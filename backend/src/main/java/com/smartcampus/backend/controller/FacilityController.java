@@ -6,9 +6,12 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/facilities")
@@ -48,29 +51,38 @@ public class FacilityController {
         return new ResponseEntity<>(facilities, HttpStatus.OK);
     }
 
+    @PostMapping
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<FacilityDTO> createFacility(@Valid @RequestBody FacilityDTO facilityDTO) {
+        FacilityDTO facility = facilityService.createFacility(facilityDTO);
+        return new ResponseEntity<>(facility, HttpStatus.CREATED);
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<FacilityDTO> updateFacility(@PathVariable String id, @Valid @RequestBody FacilityDTO facilityDTO) {
+        FacilityDTO facility = facilityService.updateFacility(id, facilityDTO);
+        return new ResponseEntity<>(facility, HttpStatus.OK);
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<Map<String, String>> deleteFacility(@PathVariable String id) {
+        facilityService.deleteFacility(id);
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Facility deleted successfully");
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @GetMapping("/active/list")
+    public ResponseEntity<List<FacilityDTO>> getActiveFacilities() {
+        List<FacilityDTO> facilities = facilityService.getActiveFacilities();
+        return new ResponseEntity<>(facilities, HttpStatus.OK);
+    }
+
     @GetMapping("/capacity/{capacity}")
     public ResponseEntity<List<FacilityDTO>> getFacilitiesByCapacity(@PathVariable Integer capacity) {
         List<FacilityDTO> facilities = facilityService.getFacilitiesByCapacity(capacity);
         return new ResponseEntity<>(facilities, HttpStatus.OK);
-    }
-
-    @PostMapping
-    public ResponseEntity<FacilityDTO> createFacility(@Valid @RequestBody FacilityDTO facilityDTO) {
-        FacilityDTO createdFacility = facilityService.createFacility(facilityDTO);
-        return new ResponseEntity<>(createdFacility, HttpStatus.CREATED);
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<FacilityDTO> updateFacility(
-            @PathVariable String id,
-            @Valid @RequestBody FacilityDTO facilityDTO) {
-        FacilityDTO updatedFacility = facilityService.updateFacility(id, facilityDTO);
-        return new ResponseEntity<>(updatedFacility, HttpStatus.OK);
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteFacility(@PathVariable String id) {
-        facilityService.deleteFacility(id);
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 }

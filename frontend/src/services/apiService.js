@@ -10,12 +10,15 @@ const apiClient = axios.create({
   },
 });
 
-// Add token to requests
+// Add token and user ID to requests
 apiClient.interceptors.request.use(
   (config) => {
-    const token = useAuthStore.getState().token;
+    const { token, user } = useAuthStore.getState();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    if (user && user.id) {
+      config.headers['X-User-Id'] = user.id;
     }
     return config;
   },
@@ -50,5 +53,7 @@ export const facilityService = {
   updateFacility: (id, data) => apiClient.put(`/facilities/${id}`, data),
   deleteFacility: (id) => apiClient.delete(`/facilities/${id}`),
 };
+
+export const apiService = apiClient;
 
 export default apiClient;
