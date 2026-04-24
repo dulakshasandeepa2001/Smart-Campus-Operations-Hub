@@ -1,6 +1,8 @@
 package com.smartcampus.backend.service;
 
+import com.smartcampus.backend.dto.ForgotPasswordRequest;
 import com.smartcampus.backend.dto.LoginRequest;
+import com.smartcampus.backend.dto.ResetPasswordRequest;
 import com.smartcampus.backend.dto.SignupRequest;
 import com.smartcampus.backend.dto.AuthResponse;
 import com.smartcampus.backend.entity.User;
@@ -16,6 +18,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -32,6 +36,9 @@ public class AuthService {
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
+    @Autowired
+    private EmailService emailService;
+
     @Transactional
     public AuthResponse signup(SignupRequest signupRequest) {
         // Validate input
@@ -40,7 +47,7 @@ public class AuthService {
         }
 
         // Check if email already exists
-        if (userRepository.existsByEmail(signupRequest.getEmail())) {
+        if (userRepository.existsByEmailIgnoreCase(signupRequest.getEmail())) {
             throw new BadRequestException("Email is already registered");
         }
 
@@ -171,5 +178,50 @@ public class AuthService {
         }
 
         throw new BadRequestException("Invalid token");
+    }
+
+    @Transactional
+    public Map<String, String> requestPasswordReset(ForgotPasswordRequest request) {
+        String message = "If an account exists for that email, a password reset link has been sent.";
+        String email = request.getEmail().trim();
+
+        userRepository.findByEmailIgnoreCase(email).ifPresent(user -> {
+            String resetToken = UUID.randomUUID().toString().replace("-", "");
+
+            user.setPasswordResetToken(resetToken);
+            user.setPasswordResetTokenExpiry(LocalDateTime.now().plusHours(1));
+            user.setUpdatedAt(LocalDateTime.now());
+            userRepository.save(user);
+
+            emailService.sendPasswordResetEmail(user.getEmail(), user.getFullName(), resetToken);
+        });
+
+        return Map.of("message", message);
+    }
+
+    @Transactional
+    public Map<String, String> resetPassword(ResetPasswordRequest request) {
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new BadRequestException("Passwords do not match");
+        }
+
+        User user = userRepository.findByPasswordResetToken(request.getToken())
+                .orElseThrow(() -> new BadRequestException("Password reset link is invalid or has expired"));
+
+        if (user.getPasswordResetTokenExpiry() == null || user.getPasswordResetTokenExpiry().isBefore(LocalDateTime.now())) {
+            user.setPasswordResetToken(null);
+            user.setPasswordResetTokenExpiry(null);
+            user.setUpdatedAt(LocalDateTime.now());
+            userRepository.save(user);
+            throw new BadRequestException("Password reset link has expired");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setPasswordResetToken(null);
+        user.setPasswordResetTokenExpiry(null);
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+
+        return Map.of("message", "Password updated successfully. You can now sign in.");
     }
 }

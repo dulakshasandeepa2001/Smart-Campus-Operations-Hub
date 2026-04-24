@@ -260,6 +260,8 @@ export default function TechnicianDashboard() {
           </div>
         )}
       </div>
+
+      <hr className="dashboard-divider" />
     </div>
   );
 }
