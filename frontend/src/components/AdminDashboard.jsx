@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { apiService } from '../services/apiService';
+import LecturerInvitationManager from './LecturerInvitationManager';
 import '../styles/dashboards.css';
 
 export default function AdminDashboard() {
@@ -148,6 +149,12 @@ export default function AdminDashboard() {
         >
           Review Bookings
         </button>
+        <button
+          className={`tab-button ${activeTab === 'invitations' ? 'active' : ''}`}
+          onClick={() => setActiveTab('invitations')}
+        >
+          Lecturer Invitations
+        </button>
       </div>
 
       <div className="dashboard-content">
@@ -268,7 +275,13 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
+        {activeTab === 'invitations' && (
+          <LecturerInvitationManager />
+        )}
       </div>
+
+      <hr className="dashboard-divider" />
     </div>
   );
 }

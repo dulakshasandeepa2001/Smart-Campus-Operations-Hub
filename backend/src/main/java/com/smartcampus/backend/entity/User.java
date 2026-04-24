@@ -25,6 +25,8 @@ public class User {
     private Boolean active;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String passwordResetToken;
+    private LocalDateTime passwordResetTokenExpiry;
 
     public User() {}
 
@@ -57,6 +59,8 @@ public class User {
     public Boolean getActive() { return active; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public String getPasswordResetToken() { return passwordResetToken; }
+    public LocalDateTime getPasswordResetTokenExpiry() { return passwordResetTokenExpiry; }
 
     // Setters
     public void setId(String id) { this.id = id; }
@@ -76,6 +80,8 @@ public class User {
     public void setActive(Boolean active) { this.active = active; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public void setPasswordResetToken(String passwordResetToken) { this.passwordResetToken = passwordResetToken; }
+    public void setPasswordResetTokenExpiry(LocalDateTime passwordResetTokenExpiry) { this.passwordResetTokenExpiry = passwordResetTokenExpiry; }
 
     // Builder
     public static Builder builder() {
@@ -100,6 +106,8 @@ public class User {
         private Boolean active;
         private LocalDateTime createdAt;
         private LocalDateTime updatedAt;
+        private String passwordResetToken;
+        private LocalDateTime passwordResetTokenExpiry;
 
         public Builder id(String id) { this.id = id; return this; }
         public Builder email(String email) { this.email = email; return this; }
@@ -118,6 +126,8 @@ public class User {
         public Builder active(Boolean active) { this.active = active; return this; }
         public Builder createdAt(LocalDateTime createdAt) { this.createdAt = createdAt; return this; }
         public Builder updatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; return this; }
+        public Builder passwordResetToken(String passwordResetToken) { this.passwordResetToken = passwordResetToken; return this; }
+        public Builder passwordResetTokenExpiry(LocalDateTime passwordResetTokenExpiry) { this.passwordResetTokenExpiry = passwordResetTokenExpiry; return this; }
 
         public User build() {
             User user = new User(email, password, fullName, studentId, phoneNumber, department, role, active);
@@ -130,6 +140,8 @@ public class User {
             user.setPrivateMail(privateMail);
             user.setCreatedAt(createdAt);
             user.setUpdatedAt(updatedAt);
+            user.setPasswordResetToken(passwordResetToken);
+            user.setPasswordResetTokenExpiry(passwordResetTokenExpiry);
             return user;
         }
     }
