@@ -95,6 +95,10 @@ export default function LoginPage() {
             />
           </div>
 
+          <div className="auth-form-link">
+            <Link to="/forgot-password">Forgot password?</Link>
+          </div>
+
           <div className="form-checkbox">
             <input
               id="rememberMe"

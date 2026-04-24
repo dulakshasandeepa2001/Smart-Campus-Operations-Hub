@@ -59,7 +59,8 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authz -> authz
-                .requestMatchers("/auth/signup", "/auth/login", "/auth/refresh-token").permitAll()
+                .requestMatchers("/auth/signup", "/auth/login", "/auth/refresh-token", "/auth/forgot-password", "/auth/reset-password").permitAll()
+                .requestMatchers("/invitations/accept", "/invitations/{token}").permitAll()
                 .requestMatchers("/facilities/search", "/facilities/*").permitAll()
                 .anyRequest().authenticated()
             )

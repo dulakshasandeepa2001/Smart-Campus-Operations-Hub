@@ -2,9 +2,9 @@
 .dashboard-header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 2rem;
+  padding: 1.4rem;
   border-radius: 12px;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
@@ -20,21 +20,30 @@
   opacity: 0.9;
 }
 
+/* Horizontal Logout Bar */
+.dashboard-divider {
+  border: none;
+  border-top: 2px solid #667eea;
+  margin: 2rem 0;
+  opacity: 0.5;
+}
+
 .dashboard-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-bottom: 1rem;
 }
 
 .stat-card {
   background: white;
-  padding: 1.5rem;
+  padding: 0.9rem;
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   text-align: center;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   border-left: 4px solid #667eea;
+  width: 100%;
 }
 
 .stat-card:hover {
@@ -65,30 +74,35 @@
 
 .dashboard-tabs {
   display: flex;
-  gap: 1rem;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid #eee;
   flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 2px solid #eee;
 }
 
-.tab-button {
-  padding: 0.75rem 1.5rem;
+.dashboard-tabs .tab-button {
+  width: auto;
+  flex: 0 0 auto;
+  padding: 0.75rem 1rem;
   background: white;
   border: 2px solid #ddd;
   border-radius: 8px;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 600;
   transition: all 0.3s ease;
-  font-size: 1rem;
+  font-size: 0.98rem;
+  white-space: nowrap;
 }
 
-.tab-button:hover {
+.dashboard-tabs .tab-button:hover {
   border-color: #667eea;
   color: #667eea;
 }
 
-.tab-button.active {
+.dashboard-tabs .tab-button.active {
   background: #667eea;
   color: white;
   border-color: #667eea;
@@ -96,7 +110,7 @@
 
 .dashboard-content {
   background: white;
-  padding: 2rem;
+  padding: 1.2rem;
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -112,7 +126,7 @@
 .admin-dashboard {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 1rem;
+  padding: 0.7rem;
 }
 
 .overview-section,
@@ -1083,7 +1097,7 @@
   }
 
   .dashboard-stats {
-    grid-template-columns: 1fr 1fr;
+    gap: 0.85rem;
   }
 
   .facilities-grid {
@@ -1099,11 +1113,12 @@
   }
 
   .dashboard-tabs {
-    flex-direction: column;
+    gap: 0.5rem;
   }
 
-  .tab-button {
-    width: 100%;
+  .dashboard-tabs .tab-button {
+    padding: 0.7rem 0.9rem;
+    font-size: 0.95rem;
   }
 
   .booking-modal {
@@ -1140,8 +1155,12 @@
     font-size: 1.5rem;
   }
 
+  .dashboard-divider {
+    margin: 1rem 0;
+  }
+
   .dashboard-stats {
-    grid-template-columns: 1fr;
+    gap: 0.75rem;
   }
 
   .stat-card h3 {

@@ -175,6 +175,25 @@
   cursor: pointer;
 }
 
+.auth-form-link {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -8px;
+}
+
+.auth-form-link a {
+  color: var(--primary-color);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.auth-form-link a:hover {
+  color: var(--secondary-color);
+  text-decoration: underline;
+}
+
 /* Buttons */
 .auth-button {
   padding: 12px 16px;
