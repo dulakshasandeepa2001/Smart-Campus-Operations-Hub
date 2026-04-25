@@ -243,9 +243,26 @@ export default function LecturerDashboard() {
 
       {/* TABS */}
       <div className="dashboard-tabs">
-        <button onClick={() => setActiveTab('overview')}>Overview</button>
-        <button onClick={() => setActiveTab('classes')}>Classes</button>
-        <button onClick={() => setActiveTab('facilities')}>Facilities</button>
+        <button
+          className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`}
+          onClick={() => setActiveTab('overview')}
+        >
+          Overview
+        </button>
+
+        <button
+          className={`tab-button ${activeTab === 'classes' ? 'active' : ''}`}
+          onClick={() => setActiveTab('classes')}
+        >
+          Classes
+        </button>
+
+        <button
+          className={`tab-button ${activeTab === 'facilities' ? 'active' : ''}`}
+          onClick={() => setActiveTab('facilities')}
+        >
+          Facilities
+        </button>
       </div>
 
       {/* CONTENT */}
@@ -271,7 +288,7 @@ export default function LecturerDashboard() {
         {activeTab === 'classes' && (
           <div>
             {bookings.map(b => (
-              <div key={b.id} className="class-card">
+              <div key={b.id} className="booking-card">
                 <h3>{b.facilityName}</h3>
                 <p>{b.status}</p>
 

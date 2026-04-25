@@ -132,7 +132,7 @@
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   max-width: 1200px;
-  margin: 4rem auto 2rem;
+  margin: 0 auto;   /* ✅ FIX */
   position: relative;
 }
 
@@ -1227,10 +1227,10 @@
 /* History Section Styles */
 .history-section {
   background: white;
-  width: 1300px;
+  width: 100%;          /* ✅ FIX */
+  max-width: 1200px;    /* ✅ */
+  margin: 0 auto;       /* ✅ */
   padding: 2rem;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .history-section h2 {
