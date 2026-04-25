@@ -47,10 +47,10 @@
 }
 
 .dashboard-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
-  margin-bottom: 1rem;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .stat-card {
@@ -1547,4 +1547,17 @@
   background: rgba(160, 174, 192, 0.1);
   color: #a0aec0;
   border-color: #a0aec0;
+}
+
+
+@media (max-width: 1024px) {
+  .dashboard-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .dashboard-stats {
+    grid-template-columns: 1fr;
+  }
 }
