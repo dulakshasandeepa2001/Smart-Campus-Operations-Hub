@@ -7,7 +7,8 @@ import '../styles/dashboards.css';
 export default function AdminDashboard() {
   const { user } = useAuthStore();
   const [facilities, setFacilities] = useState([]);
-  const [bookings, setBookings] = useState([]);
+  const [pendingBookings, setPendingBookings] = useState([]);
+  const [allBookings, setAllBookings] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [newFacility, setNewFacility] = useState({
@@ -27,12 +28,14 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [facilitiesRes, bookingsRes] = await Promise.all([
+      const [facilitiesRes, pendingBookingsRes, allBookingsRes] = await Promise.all([
         apiService.get('/facilities'),
-        apiService.get('/bookings/admin/pending')
+        apiService.get('/bookings/admin/pending'),
+        apiService.get('/bookings/admin/all')
       ]);
       setFacilities(facilitiesRes.data);
-      setBookings(bookingsRes.data);
+      setPendingBookings(pendingBookingsRes.data);
+      setAllBookings(allBookingsRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -64,11 +67,12 @@ export default function AdminDashboard() {
     try {
       await apiService.put(`/bookings/${bookingId}/status`, {
         status: 'APPROVED'
+      }, {
+        headers: { 'X-User-Id': user?.id }
       });
       fetchData();
       alert('Booking approved!');
     } catch (error) {
-      // Handle specific error messages from backend
       if (error.response?.data?.message) {
         alert(error.response.data.message);
       } else {
@@ -84,6 +88,8 @@ export default function AdminDashboard() {
         await apiService.put(`/bookings/${bookingId}/status`, {
           status: 'REJECTED',
           rejectionReason: reason
+        }, {
+          headers: { 'X-User-Id': user?.id }
         });
         fetchData();
         alert('Booking rejected!');
@@ -96,8 +102,8 @@ export default function AdminDashboard() {
   const stats = {
     totalFacilities: facilities.length,
     activeFacilities: facilities.filter(f => f.status === 'ACTIVE').length,
-    pendingBookings: bookings.filter(b => b.status === 'PENDING').length,
-    totalBookings: bookings.length
+    pendingBookings: pendingBookings.length,
+    totalBookings: allBookings.length
   };
 
   if (loading) {
@@ -148,6 +154,12 @@ export default function AdminDashboard() {
           onClick={() => setActiveTab('bookings')}
         >
           Review Bookings
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'all-bookings' ? 'active' : ''}`}
+          onClick={() => setActiveTab('all-bookings')}
+        >
+          All Bookings
         </button>
         <button
           className={`tab-button ${activeTab === 'invitations' ? 'active' : ''}`}
@@ -254,7 +266,7 @@ export default function AdminDashboard() {
           <div className="bookings-section">
             <h2>Pending Bookings</h2>
             <div className="bookings-list">
-              {bookings
+              {pendingBookings
                 .filter(b => b.status === 'PENDING')
                 .map(booking => (
                   <div key={booking.id} className="booking-card">
@@ -262,6 +274,7 @@ export default function AdminDashboard() {
                       <h3>{booking.facilityName}</h3>
                       <span className={`status pending`}>{booking.status}</span>
                     </div>
+                    <p><strong>Booked By:</strong> {booking.userId}</p>
                     <p><strong>Purpose:</strong> {booking.purpose}</p>
                     <p><strong>Date:</strong> {new Date(booking.bookingStart).toLocaleDateString()}</p>
                     <p><strong>Time:</strong> {new Date(booking.bookingStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(booking.bookingEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
@@ -270,6 +283,32 @@ export default function AdminDashboard() {
                       <button className="btn-success" onClick={() => handleApproveBooking(booking.id)}>Approve</button>
                       <button className="btn-danger" onClick={() => handleRejectBooking(booking.id)}>Reject</button>
                     </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'all-bookings' && (
+          <div className="bookings-section">
+            <h2>All Bookings</h2>
+            <div className="bookings-list">
+              {[...allBookings]
+                .sort((a, b) => new Date(b.createdAt || b.bookingStart) - new Date(a.createdAt || a.bookingStart))
+                .map(booking => (
+                  <div key={booking.id} className="booking-card">
+                    <div className="booking-header">
+                      <h3>{booking.facilityName}</h3>
+                      <span className={`status ${booking.status}`}>{booking.status}</span>
+                    </div>
+                    <p><strong>Booked By:</strong> {booking.userId}</p>
+                    <p><strong>Purpose:</strong> {booking.purpose}</p>
+                    <p><strong>Date:</strong> {new Date(booking.bookingStart).toLocaleDateString()}</p>
+                    <p><strong>Time:</strong> {new Date(booking.bookingStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(booking.bookingEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    <p><strong>Attendees:</strong> {booking.expectedAttendees}</p>
+                    {booking.status === 'REJECTED' && booking.rejectionReason && (
+                      <p className="rejection-reason"><strong>Reason:</strong> {booking.rejectionReason}</p>
+                    )}
                   </div>
                 ))}
             </div>

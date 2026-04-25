@@ -56,6 +56,13 @@ public class BookingController {
         return new ResponseEntity<>(bookings, HttpStatus.OK);
     }
 
+    @GetMapping("/admin/all")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<List<BookingDTO>> getAllBookings() {
+        List<BookingDTO> bookings = bookingService.getAllBookings();
+        return new ResponseEntity<>(bookings, HttpStatus.OK);
+    }
+
     @PutMapping("/{bookingId}")
     public ResponseEntity<BookingDTO> updateBooking(
             @PathVariable String bookingId,

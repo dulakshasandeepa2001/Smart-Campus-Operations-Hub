@@ -54,7 +54,6 @@ public class BookingService {
 
         if ("STUDENT".equals(role)) {
             validateStudentBooking(request, facility);
-            validateSeatConflicts(request);
         } else if ("LECTURER".equals(role)) {
             validateLecturerBooking(request, facility);
         } else if (!"ADMIN".equals(role)) {
@@ -94,43 +93,15 @@ public class BookingService {
 
     private void validateStudentBooking(CreateBookingRequest request, Facility facility) {
         if (!isStudentBookingAllowed(facility.getType())) {
-            throw new BadRequestException("Students can only book Lecture Halls or Labs");
+            throw new BadRequestException("Students can only book Meeting Rooms");
         }
 
-        if (request.getNumberOfSeats() == null || request.getNumberOfSeats() < 1 || request.getNumberOfSeats() > 5) {
-            throw new BadRequestException("Students can only book 1 to 5 seats");
+        if (request.getExpectedAttendees() == null || request.getExpectedAttendees() < 1) {
+            throw new BadRequestException("Expected attendees are required");
         }
 
-        if (request.getSeatNumbers() == null || request.getSeatNumbers().isEmpty()) {
-            throw new BadRequestException("Seat numbers are required");
-        }
-
-        if (request.getSeatNumbers().size() != request.getNumberOfSeats()) {
-            throw new BadRequestException("Seat count mismatch");
-        }
-
-        long unique = request.getSeatNumbers().stream().distinct().count();
-        if (unique != request.getSeatNumbers().size()) {
-            throw new BadRequestException("Duplicate seats not allowed");
-        }
-
-        for (Integer seat : request.getSeatNumbers()) {
-            if (seat == null || seat < 1 || seat > facility.getCapacity()) {
-                throw new BadRequestException("Invalid seat number");
-            }
-        }
-    }
-
-    private void validateSeatConflicts(CreateBookingRequest request) {
-        List<Booking> conflicts = bookingRepository.findSeatConflicts(
-                request.getFacilityId(),
-                request.getBookingStart(),
-                request.getBookingEnd(),
-                request.getSeatNumbers()
-        );
-
-        if (!conflicts.isEmpty()) {
-            throw new BadRequestException("Selected seats already booked for this time");
+        if (request.getExpectedAttendees() > facility.getCapacity()) {
+            throw new BadRequestException("Expected attendees cannot exceed facility capacity");
         }
     }
 
@@ -139,29 +110,22 @@ public class BookingService {
             throw new BadRequestException("Expected attendees required");
         }
 
-        boolean isFull = request.getExpectedAttendees() >= Math.ceil(facility.getCapacity() * 0.8);
-
-        if (isFull && !isLecturerFullFacilityAllowed(facility.getType())) {
-            throw new BadRequestException("Invalid facility type for full booking");
+        if (request.getExpectedAttendees() > facility.getCapacity()) {
+            throw new BadRequestException("Expected attendees cannot exceed facility capacity");
         }
     }
 
     private boolean isStudentBookingAllowed(Facility.FacilityType type) {
-        return type == Facility.FacilityType.LECTURE_HALL ||
-               type == Facility.FacilityType.LAB ||
-               type == Facility.FacilityType.MEETING_ROOM;
-    }
-
-    private boolean isLecturerFullFacilityAllowed(Facility.FacilityType type) {
-        return type == Facility.FacilityType.LECTURE_HALL ||
-               type == Facility.FacilityType.LAB;
+        return type == Facility.FacilityType.MEETING_ROOM;
     }
 
     public BookingDTO getBookingById(String id) {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+
         Facility facility = facilityRepository.findById(booking.getFacilityId()).orElse(null);
         String facilityName = facility != null ? facility.getName() : "Unknown";
+
         return convertToDTO(booking, facilityName);
     }
 
@@ -192,11 +156,12 @@ public class BookingService {
             throw new BadRequestException("Booking end time must be after start time");
         }
 
-        boolean isFullFacilityBooking = request.getExpectedAttendees() != null &&
-                request.getExpectedAttendees() >= Math.ceil(facility.getCapacity() * 0.8);
+        String role = requester.getRole().name();
 
-        if (isFullFacilityBooking && !isLecturerFullFacilityAllowed(facility.getType())) {
-            throw new BadRequestException("Invalid facility type for full booking");
+        if ("STUDENT".equals(role)) {
+            validateStudentBooking(request, facility);
+        } else if ("LECTURER".equals(role)) {
+            validateLecturerBooking(request, facility);
         }
 
         List<Booking> approvedConflicts = bookingRepository.findApprovedConflictingBookingsExcluding(
@@ -245,6 +210,27 @@ public class BookingService {
                 .collect(Collectors.toList());
     }
 
+    public List<BookingDTO> getAllBookings() {
+        return bookingRepository.findAll()
+                .stream()
+                .sorted((b1, b2) -> {
+                    LocalDateTime d1 = b1.getCreatedAt() != null ? b1.getCreatedAt() : b1.getBookingStart();
+                    LocalDateTime d2 = b2.getCreatedAt() != null ? b2.getCreatedAt() : b2.getBookingStart();
+
+                    if (d1 == null && d2 == null) return 0;
+                    if (d1 == null) return 1;
+                    if (d2 == null) return -1;
+
+                    return d2.compareTo(d1);
+                })
+                .map(booking -> {
+                    Facility facility = facilityRepository.findById(booking.getFacilityId()).orElse(null);
+                    String facilityName = facility != null ? facility.getName() : "Unknown";
+                    return convertToDTO(booking, facilityName);
+                })
+                .collect(Collectors.toList());
+    }
+
     public List<BookingDTO> getFacilityBookings(String facilityId) {
         return bookingRepository.findByFacilityIdOrderByBookingStartAsc(facilityId)
                 .stream()
@@ -266,6 +252,7 @@ public class BookingService {
                     booking.getBookingEnd(),
                     bookingId
             );
+
             if (!approvedConflicts.isEmpty()) {
                 throw new BadRequestException("This resource is not available at the selected time period.");
             }
