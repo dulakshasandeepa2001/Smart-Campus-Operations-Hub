@@ -1,3 +1,21 @@
+/* make button look like span */
+.stat-item {
+  border: none;
+  background: #f8f9fa;
+  cursor: pointer;
+  font: inherit;
+}
+
+/* remove default button styles */
+.stat-item:focus {
+  outline: none;
+}
+
+/* optional nice click effect */
+.stat-item:active {
+  transform: scale(0.97);
+}
+
 /* Dashboard Common Styles */
 .dashboard-header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
