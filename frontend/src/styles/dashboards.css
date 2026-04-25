@@ -1,3 +1,21 @@
+/* make button look like span */
+.stat-item {
+  border: none;
+  background: #f8f9fa;
+  cursor: pointer;
+  font: inherit;
+}
+
+/* remove default button styles */
+.stat-item:focus {
+  outline: none;
+}
+
+/* optional nice click effect */
+.stat-item:active {
+  transform: scale(0.97);
+}
+
 /* Dashboard Common Styles */
 .dashboard-header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -29,10 +47,10 @@
 }
 
 .dashboard-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
-  margin-bottom: 1rem;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .stat-card {
@@ -113,6 +131,22 @@
   padding: 1.2rem;
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  max-width: 1200px;
+  margin: 0 auto;   /* ✅ FIX */
+  position: relative;
+}
+
+.lecturer-dashboard {
+  position: relative;
+}
+
+.history-section {
+  width: 100%;
+}
+
+.history-table-container {
+  max-width: 100%;
+  margin: 0 auto;
 }
 
 .dashboard-loading {
@@ -1187,5 +1221,418 @@
 
   .facility-form {
     padding: 1rem;
+  }
+}
+
+/* History Section Styles */
+.history-section {
+  background: white;
+  width: 100%;          /* ✅ FIX */
+  max-width: 1200px;    /* ✅ */
+  margin: 0 auto;       /* ✅ */
+  padding: 2rem;
+}
+
+.history-section h2 {
+  color: #333;
+  margin-bottom: 1.5rem;
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.history-table-container {
+  overflow-x: auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  font-size: 0.9rem;
+}
+
+.history-table thead {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.history-table th {
+  padding: 1rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.history-table td {
+  padding: 1rem 0.75rem;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
+}
+
+.history-row:hover {
+  background-color: #f8f9fa;
+  transition: background-color 0.3s ease;
+}
+
+.history-row.approved {
+  background-color: rgba(72, 187, 120, 0.05);
+}
+
+.history-row.pending {
+  background-color: rgba(236, 201, 75, 0.05);
+}
+
+.history-row.rejected {
+  background-color: rgba(245, 101, 101, 0.05);
+}
+
+.history-row.cancelled {
+  background-color: rgba(160, 174, 192, 0.05);
+}
+
+.facility-name {
+  font-weight: 600;
+  color: #333;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.purpose-cell {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-badge.approved {
+  background-color: #48bb78;
+  color: white;
+}
+
+.status-badge.pending {
+  background-color: #ecc94b;
+  color: #333;
+}
+
+.status-badge.rejected {
+  background-color: #ff6b6b;
+  color: white;
+}
+
+.status-badge.cancelled {
+  background-color: #a0aec0;
+  color: white;
+}
+
+.actions-cell {
+  text-align: center;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.btn-small {
+  padding: 0.375rem 0.5rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+}
+
+.btn-small.btn-edit {
+  background-color: #667eea;
+  color: white;
+}
+
+.btn-small.btn-edit:hover {
+  background-color: #5568d3;
+  transform: scale(1.1);
+}
+
+.btn-small.btn-delete {
+  background-color: #ff6b6b;
+  color: white;
+}
+
+.btn-small.btn-delete:hover {
+  background-color: #ee5a52;
+  transform: scale(1.1);
+}
+
+.btn-small.btn-cancel {
+  background-color: #a0aec0;
+  color: white;
+}
+
+.btn-small.btn-cancel:hover {
+  background-color: #718096;
+  transform: scale(1.1);
+}
+
+.empty-history {
+  text-align: center;
+  padding: 3rem;
+  color: #666;
+  font-size: 1.1rem;
+}
+
+.empty-history p {
+  margin: 0;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.section-header h2 {
+  margin: 0;
+  color: #333;
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.history-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.history-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+/* Responsive History Table */
+@media (max-width: 768px) {
+  .history-table {
+    font-size: 0.8rem;
+  }
+
+  .history-table th,
+  .history-table td {
+    padding: 0.5rem 0.25rem;
+  }
+
+  .facility-name {
+    max-width: 100px;
+  }
+
+  .purpose-cell {
+    max-width: 120px;
+  }
+
+  .section-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .history-button {
+    align-self: flex-end;
+  }
+}
+
+/* Back Button Styles */
+.lecturer-dashboard {
+  position: relative;
+}
+
+.page-back-button {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 12;
+  margin-bottom: 0;
+}
+
+.back-button {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 0.65rem 0.8rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 1.1rem;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+}
+
+.back-button:hover {
+  background: #5a6268;
+  transform: translateY(-1px);
+}
+
+.header-with-back {
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+/* History Stats */
+.history-stats {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  background: #f8f9fa;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  color: #666;
+  border: 1px solid #e9ecef;
+}
+
+.stat-item.approved {
+  background: rgba(72, 187, 120, 0.1);
+  color: #48bb78;
+  border-color: #48bb78;
+}
+
+.stat-item.pending {
+  background: rgba(236, 201, 75, 0.1);
+  color: #ecc94b;
+  border-color: #ecc94b;
+}
+
+.stat-item.rejected {
+  background: rgba(245, 101, 101, 0.1);
+  color: #ff6b6b;
+  border-color: #ff6b6b;
+}
+
+.stat-item.cancelled {
+  background: rgba(160, 174, 192, 0.1);
+  color: #a0aec0;
+  border-color: #a0aec0;
+}
+
+
+@media (max-width: 1024px) {
+  .dashboard-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .dashboard-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Filter / Search Section */
+.filter-section {
+  background: #f8f9fa;
+  padding: 1.2rem;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.filter-group {
+  flex: 1;
+  min-width: 150px;
+}
+
+.filter-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+  color: #4a5568;
+}
+
+.search-input, .filter-select, .filter-date {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #cbd5e0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.search-input:focus, .filter-select:focus, .filter-date:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102,126,234,0.2);
+}
+
+.filter-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.clear-filters {
+  background: #e2e8f0;
+  border: none;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.clear-filters:hover {
+  background: #cbd5e0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .filter-section {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .filter-group {
+    width: 100%;
+  }
+  .filter-actions {
+    justify-content: flex-end;
   }
 }

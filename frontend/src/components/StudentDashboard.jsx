@@ -1,147 +1,212 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { apiService } from '../services/apiService';
+import { facilityService, bookingService, notificationService } from '../services/apiService';
 import '../styles/dashboards.css';
 
 export default function StudentDashboard() {
   const { user } = useAuthStore();
+
   const [facilities, setFacilities] = useState([]);
-  const [myBookings, setMyBookings] = useState([]);
+  const [bookings, setBookings] = useState([]);
   const [notifications, setNotifications] = useState([]);
-  const [activeTab, setActiveTab] = useState('facilities');
+  const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
+
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  const [modalOpen, setModalOpen] = useState(false);
   const [selectedFacility, setSelectedFacility] = useState(null);
-  const [facilityBookings, setFacilityBookings] = useState([]);
-  const [bookingForm, setBookingForm] = useState({
+  const [editingBooking, setEditingBooking] = useState(null);
+
+  const [form, setForm] = useState({
+    date: '',
+    startTime: '',
+    endTime: '',
+    attendees: '',
     purpose: '',
-    numberOfSeats: 1
+    subject: ''
   });
-  const [selectedSeats, setSelectedSeats] = useState([]);
-  const [filterType, setFilterType] = useState('');
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const fetchData = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      const [facilitiesRes, bookingsRes, notificationsRes] = await Promise.all([
-        apiService.get('/facilities/active/list'),
-        apiService.get(`/bookings/user/${user?.id}`),
-        apiService.get(`/notifications/user/${user?.id}`)
+      const [facRes, bookRes, notiRes] = await Promise.all([
+        facilityService.getAll(),
+        bookingService.getUserBookings(user?.id),
+        notificationService.getUserNotifications(user?.id)
       ]);
-      setFacilities(facilitiesRes.data);
-      setMyBookings(bookingsRes.data);
-      setNotifications(notificationsRes.data);
-    } catch (error) {
-      console.error('Error fetching data:', error);
+      const meetingRooms = facRes.data.filter(f => f.type === 'MEETING_ROOM');
+      setFacilities(meetingRooms);
+      setBookings(bookRes.data);
+      setNotifications(notiRes.data);
+    } catch (err) {
+      console.error('Dashboard load error:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchFacilityBookings = async (facilityId) => {
-    try {
-      const response = await apiService.get(`/bookings/facility/${facilityId}`);
-      setFacilityBookings(response.data);
-    } catch (error) {
-      console.error('Error fetching facility bookings:', error);
-      setFacilityBookings([]);
+  useEffect(() => {
+    if (user?.id) {
+      loadData();
     }
-  };
+  }, [user?.id]);
 
-  const calculateAvailableSeats = () => {
-    if (!selectedFacility) return 0;
-    const bookedSeats = facilityBookings.reduce((total, booking) => total + (booking.expectedAttendees || 1), 0);
-    return Math.max(0, selectedFacility.capacity - bookedSeats);
-  };
-
-  const openFacilityBooking = (facility) => {
-    setSelectedFacility(facility);
-    setBookingForm({ purpose: '', numberOfSeats: 1 });
-    setSelectedSeats([]);
-    fetchFacilityBookings(facility.id);
-  };
-
-  const getBookedSeats = () => {
-    const bookedSeats = [];
-    facilityBookings.forEach(booking => {
-      if (booking.seatNumbers && Array.isArray(booking.seatNumbers)) {
-        bookedSeats.push(...booking.seatNumbers);
+  const filteredBookings = useMemo(() => {
+    return bookings.filter(booking => {
+      const matchesSearch = 
+        booking.facilityName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        booking.purpose?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'ALL' || booking.status === statusFilter;
+      let matchesDate = true;
+      const bookingDate = new Date(booking.bookingStart);
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0,0,0,0);
+        if (bookingDate < start) matchesDate = false;
       }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23,59,59,999);
+        if (bookingDate > end) matchesDate = false;
+      }
+      return matchesSearch && matchesStatus && matchesDate;
     });
-    return bookedSeats;
+  }, [bookings, searchTerm, statusFilter, startDate, endDate]);
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('ALL');
+    setStartDate('');
+    setEndDate('');
   };
 
-  const toggleSeatSelection = (seatNum) => {
-    if (selectedSeats.includes(seatNum)) {
-      setSelectedSeats(selectedSeats.filter(s => s !== seatNum));
-      setBookingForm({ ...bookingForm, numberOfSeats: bookingForm.numberOfSeats - 1 });
-    } else {
-      if (selectedSeats.length < 5) {
-        setSelectedSeats([...selectedSeats, seatNum]);
-        setBookingForm({ ...bookingForm, numberOfSeats: selectedSeats.length + 1 });
-      } else {
-        alert('❌ Maximum 5 seats per booking');
-      }
+  const openCreateModal = (facility) => {
+    setSelectedFacility(facility);
+    setEditingBooking(null);
+    setError('');
+    setModalOpen(true);
+    const today = new Date().toISOString().split('T')[0];
+    setForm({
+      date: today,
+      startTime: '08:00',
+      endTime: '20:00',
+      attendees: '',
+      purpose: '',
+      subject: ''
+    });
+  };
+
+  const openEditModal = (booking) => {
+    const facility = facilities.find(f => f.id === booking.facilityId);
+    if (!facility) {
+      alert('Facility not found');
+      return;
     }
+    setSelectedFacility(facility);
+    setEditingBooking(booking);
+    setError('');
+    setModalOpen(true);
+    const start = new Date(booking.bookingStart);
+    const end = new Date(booking.bookingEnd);
+    setForm({
+      date: start.toISOString().split('T')[0],
+      startTime: start.toTimeString().slice(0, 5),
+      endTime: end.toTimeString().slice(0, 5),
+      attendees: booking.expectedAttendees || '',
+      purpose: booking.purpose || '',
+      subject: booking.subject || ''
+    });
   };
 
-  const handleBookFacility = async (e) => {
+  const closeModal = () => {
+    setModalOpen(false);
+    setSelectedFacility(null);
+    setEditingBooking(null);
+    setError('');
+  };
+
+  const handleChange = (e) => {
+    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const validate = () => {
+    if (!form.date || !form.startTime || !form.endTime || !form.attendees || !form.purpose) {
+      return 'All required fields must be filled';
+    }
+    if (form.startTime < '08:00') return 'Start time must be 08:00 or later';
+    if (form.endTime > '20:00') return 'End time must be before 20:00';
+    if (form.startTime >= form.endTime) return 'End time must be after start time';
+    if (parseInt(form.attendees) > selectedFacility.capacity) {
+      return `Max capacity is ${selectedFacility.capacity}`;
+    }
+    return null;
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (selectedSeats.length === 0) {
-      alert('❌ Please select at least one seat');
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
       return;
     }
-
-    if (selectedSeats.length > 5) {
-      alert('❌ Students can only book up to 5 individual seats.');
-      return;
-    }
-
     try {
-      await apiService.post('/bookings', {
+      setSubmitting(true);
+      const bookingData = {
         facilityId: selectedFacility.id,
-        purpose: bookingForm.purpose,
-        numberOfSeats: selectedSeats.length,
-        seatNumbers: selectedSeats.sort((a, b) => a - b),
-        isFullFacility: false
-      }, {
-        headers: { 'X-User-Id': user?.id }
-      });
-      setBookingForm({ purpose: '', numberOfSeats: 1 });
-      setSelectedSeats([]);
-      setSelectedFacility(null);
-      fetchData();
-      alert('✅ Seat booking submitted! Your seats are reserved upon admin approval.');
-    } catch (error) {
-      alert('❌ Error creating booking: ' + (error.response?.data?.message || error.message));
-    }
-  };
-
-  const handleCancelBooking = async (bookingId) => {
-    if (window.confirm('Cancel this booking?')) {
-      try {
-        await apiService.put(`/bookings/${bookingId}/cancel`);
-        fetchData();
-        alert('Booking cancelled!');
-      } catch (error) {
-        alert('Error cancelling booking: ' + error.message);
+        facilityName: selectedFacility.name,
+        bookingStart: `${form.date}T${form.startTime}:00`,
+        bookingEnd: `${form.date}T${form.endTime}:00`,
+        expectedAttendees: parseInt(form.attendees),
+        purpose: form.purpose,
+        subject: form.subject || form.purpose,
+      };
+      if (editingBooking) {
+        await bookingService.update(editingBooking.id, bookingData);
+      } else {
+        await bookingService.create(bookingData);
       }
+      closeModal();
+      loadData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Booking failed');
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const filteredFacilities = filterType
-    ? facilities.filter(f => f.type === filterType)
-    : facilities;
+  const handleCancel = async (id) => {
+    if (!window.confirm('Cancel this approved booking?')) return;
+    try {
+      await bookingService.cancel(id);
+      loadData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this pending booking permanently?')) return;
+    try {
+      await bookingService.delete(id);
+      loadData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
 
   const stats = {
-    totalBookings: myBookings.length,
-    approvedBookings: myBookings.filter(b => b.status === 'APPROVED').length,
-    pendingBookings: myBookings.filter(b => b.status === 'PENDING').length,
-    unreadNotifications: notifications.filter(n => !n.isRead).length
+    total: bookings.length,
+    approved: bookings.filter(b => b.status === 'APPROVED').length,
+    pending: bookings.filter(b => b.status === 'PENDING').length,
+    meetingRooms: facilities.length
   };
 
   if (loading) {
@@ -152,254 +217,172 @@ export default function StudentDashboard() {
     <div className="student-dashboard">
       <div className="dashboard-header">
         <h1>Student Dashboard</h1>
-        <p className="user-info">Welcome, {user?.fullName}</p>
+        <p>Welcome, {user?.fullName}</p>
       </div>
 
       <div className="dashboard-stats">
-        <div className="stat-card">
-          <h3>{stats.totalBookings}</h3>
-          <p>Total Bookings</p>
-        </div>
-        <div className="stat-card">
-          <h3>{stats.approvedBookings}</h3>
-          <p>Approved Bookings</p>
-        </div>
-        <div className="stat-card">
-          <h3>{stats.pendingBookings}</h3>
-          <p>Pending Bookings</p>
-        </div>
-        <div className="stat-card alert">
-          <h3>{stats.unreadNotifications}</h3>
-          <p>Unread Notifications</p>
-        </div>
+        <div className="stat-card"><h3>{stats.total}</h3><p>Total Bookings</p></div>
+        <div className="stat-card"><h3>{stats.approved}</h3><p>Approved</p></div>
+        <div className="stat-card"><h3>{stats.pending}</h3><p>Pending</p></div>
+        <div className="stat-card"><h3>{stats.meetingRooms}</h3><p>Meeting Rooms</p></div>
       </div>
 
       <div className="dashboard-tabs">
-        <button
-          className={`tab-button ${activeTab === 'facilities' ? 'active' : ''}`}
-          onClick={() => setActiveTab('facilities')}
-        >
-          Browse Facilities
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'bookings' ? 'active' : ''}`}
-          onClick={() => setActiveTab('bookings')}
-        >
-          My Bookings
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'notifications' ? 'active' : ''}`}
-          onClick={() => setActiveTab('notifications')}
-        >
-          Notifications ({stats.unreadNotifications})
-        </button>
+        <button className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>Overview</button>
+        <button className={`tab-button ${activeTab === 'facilities' ? 'active' : ''}`} onClick={() => setActiveTab('facilities')}>Meeting Rooms</button>
+        <button className={`tab-button ${activeTab === 'bookings' ? 'active' : ''}`} onClick={() => setActiveTab('bookings')}>My Bookings</button>
+        <button className={`tab-button ${activeTab === 'notifications' ? 'active' : ''}`} onClick={() => setActiveTab('notifications')}>Notifications</button>
       </div>
 
       <div className="dashboard-content">
-        {activeTab === 'facilities' && (
-          <div className="facilities-section">
-            <h2>Available Facilities</h2>
-            <div className="filter-controls">
-              <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-                <option value="">All Types</option>
-                <option value="LECTURE_HALL">Lecture Hall</option>
-                <option value="LABORATORY">Laboratory</option>
-                <option value="MEETING_ROOM">Meeting Room</option>
-                <option value="STUDY_AREA">Study Area</option>
-                <option value="AUDITORIUM">Auditorium</option>
-              </select>
+        {activeTab === 'overview' && (
+          <div className="overview-grid">
+            <div className="overview-card">
+              <h3>Welcome, {user?.fullName}</h3>
+              <p>You can book meeting rooms for group studies, project discussions, or events.</p>
+              <p>✅ Pending bookings can be edited or deleted.<br />✅ Approved bookings can be cancelled anytime.</p>
             </div>
+          </div>
+        )}
 
-            {selectedFacility ? (
-              <div className="booking-modal">
-                <div className="modal-content">
-                  <button className="close-btn" onClick={() => {
-                    setSelectedFacility(null);
-                    setBookingForm({ purpose: '', numberOfSeats: 1 });
-                    setSelectedSeats([]);
-                  }}>×</button>
-                  <h3>Book {selectedFacility.name}</h3>
-                  <p style={{color: '#666', fontSize: '0.9em', marginBottom: '1em'}}>
-                    📌 <strong>Reserve Your Seats:</strong> Select the number of seats you want to attend this lecture. 
-                    The lecture date and time are fixed by the lecturer.
-                  </p>
-                  <form onSubmit={handleBookFacility}>
-                    <div className="form-group">
-                      <label><strong>Facility:</strong> {selectedFacility.name}</label>
-                      <small style={{display: 'block', color: '#999', marginTop: '5px'}}>
-                        Capacity: {selectedFacility.capacity} | Location: {selectedFacility.building || 'TBD'}
-                      </small>
-                    </div>
-
-                    {/* Seat Availability Visualization - INTERACTIVE */}
-                    <div style={{
-                      backgroundColor: '#f5f5f5',
-                      padding: '15px',
-                      borderRadius: '8px',
-                      marginBottom: '15px'
-                    }}>
-                      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px'}}>
-                        <h4 style={{margin: '0', color: '#333'}}>🎫 Select Your Seats</h4>
-                        <span style={{color: '#666', fontSize: '0.9em'}}>
-                          Selected: <strong>{selectedSeats.length}</strong>/5
-                        </span>
-                      </div>
-                      
-                      <div style={{display: 'flex', justifyContent: 'space-around', marginBottom: '10px', fontSize: '0.85em'}}>
-                        <div>
-                          <span style={{display: 'inline-block', width: '16px', height: '16px', backgroundColor: '#4CAF50', borderRadius: '3px', marginRight: '5px'}}></span>
-                          <span>Available</span>
-                        </div>
-                        <div>
-                          <span style={{display: 'inline-block', width: '16px', height: '16px', backgroundColor: '#FFC107', borderRadius: '3px', marginRight: '5px'}}></span>
-                          <span>Selected</span>
-                        </div>
-                        <div>
-                          <span style={{display: 'inline-block', width: '16px', height: '16px', backgroundColor: '#f44336', borderRadius: '3px', marginRight: '5px'}}></span>
-                          <span>Booked</span>
-                        </div>
-                      </div>
-                      
-                      {/* Interactive Seat Grid - Click to Select */}
-                      <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: `repeat(${Math.ceil(Math.sqrt(selectedFacility.capacity))}, 1fr)`,
-                        gap: '6px',
-                        padding: '12px',
-                        backgroundColor: 'white',
-                        borderRadius: '5px',
-                        maxHeight: '300px',
-                        overflowY: 'auto'
-                      }}>
-                        {Array.from({length: selectedFacility.capacity}, (_, i) => {
-                          const seatNum = i + 1;
-                          const bookedSeats = getBookedSeats();
-                          const isBooked = bookedSeats.includes(seatNum);
-                          const isSelected = selectedSeats.includes(seatNum);
-                          
-                          return (
-                            <button
-                              key={seatNum}
-                              type="button"
-                              onClick={() => !isBooked && toggleSeatSelection(seatNum)}
-                              style={{
-                                width: '35px',
-                                height: '35px',
-                                padding: '0',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '10px',
-                                fontWeight: 'bold',
-                                border: isSelected ? '3px solid #2196F3' : '1px solid #ddd',
-                                borderRadius: '4px',
-                                cursor: isBooked ? 'not-allowed' : 'pointer',
-                                backgroundColor: isBooked ? '#f44336' : (isSelected ? '#FFC107' : '#4CAF50'),
-                                color: 'white',
-                                transition: 'all 0.2s'
-                              }}
-                            >
-                              {seatNum}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <small style={{color: '#666', marginTop: '8px', display: 'block'}}>
-                        💡 Click seats to select (max 5). Selected seats: {selectedSeats.length > 0 ? selectedSeats.sort((a,b) => a-b).join(', ') : 'None'}
-                      </small>
-                    </div>
-
-                    <div className="form-group">
-                      <label>Purpose *</label>
-                      <textarea
-                        required
-                        value={bookingForm.purpose}
-                        onChange={(e) => setBookingForm({ ...bookingForm, purpose: e.target.value })}
-                        placeholder="e.g., Attending lecture, attending lab session"
-                      />
-                    </div>
-                    <button type="submit" className="btn-primary">Reserve Seats</button>
-                  </form>
-                </div>
+        {activeTab === 'facilities' && (
+          <div className="facilities-grid">
+            {facilities.map(f => (
+              <div key={f.id} className="facility-card">
+                <h3>{f.name}</h3>
+                <p>{f.type.replace('_', ' ')}</p>
+                <p>Capacity: {f.capacity}</p>
+                {f.building && <p>Building: {f.building}</p>}
+                <button className="btn-book" onClick={() => openCreateModal(f)}>Book</button>
               </div>
-            ) : (
-              <div className="facilities-grid">
-                {filteredFacilities.map(facility => (
-                  <div key={facility.id} className="facility-card">
-                    <h3>{facility.name}</h3>
-                    <p><strong>Type:</strong> {facility.type}</p>
-                    <p><strong>Capacity:</strong> {facility.capacity} people</p>
-                    <p><strong>Location:</strong> {facility.location}</p>
-                    <p><strong>Building:</strong> {facility.building} | Floor: {facility.floor}</p>
-                    {facility.equipment && <p><strong>Equipment:</strong> {facility.equipment}</p>}
-                    <button
-                      className="btn-primary"
-                      onClick={() => openFacilityBooking(facility)}
-                    >
-                      Book Now
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+            ))}
           </div>
         )}
 
         {activeTab === 'bookings' && (
-          <div className="bookings-section">
-            <h2>My Bookings</h2>
-            {myBookings.length === 0 ? (
-              <p className="empty-message">No bookings yet. Start by browsing available facilities!</p>
-            ) : (
-              <div className="bookings-list">
-                {myBookings.map(booking => (
-                  <div key={booking.id} className={`booking-card ${booking.status.toLowerCase()}`}>
-                    <div className="booking-header">
-                      <h3>{booking.facilityName}</h3>
-                      <span className={`status ${booking.status}`}>{booking.status}</span>
-                    </div>
-                    <p><strong>Purpose:</strong> {booking.purpose}</p>
-                    <p><strong>Date:</strong> {new Date(booking.bookingStart).toLocaleDateString()}</p>
-                    <p><strong>Time:</strong> {new Date(booking.bookingStart).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {new Date(booking.bookingEnd).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-                    <p><strong>Attendees:</strong> {booking.expectedAttendees}</p>
-                    {booking.status === 'REJECTED' && booking.rejectionReason && (
-                      <p className="rejection-reason"><strong>Reason:</strong> {booking.rejectionReason}</p>
-                    )}
-                    {booking.status === 'APPROVED' && (
-                      <button className="btn-danger" onClick={() => handleCancelBooking(booking.id)}>
-                        Cancel Booking
-                      </button>
-                    )}
-                  </div>
-                ))}
+          <>
+            <div className="filter-section">
+              <div className="filter-group">
+                <label>🔍 Search</label>
+                <input type="text" className="search-input" placeholder="Facility or purpose..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
               </div>
-            )}
-          </div>
+              <div className="filter-group">
+                <label>📌 Status</label>
+                <select className="filter-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                  <option value="ALL">All</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="APPROVED">Approved</option>
+                  <option value="REJECTED">Rejected</option>
+                </select>
+              </div>
+              <div className="filter-group">
+                <label>📅 From</label>
+                <input type="date" className="filter-date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              </div>
+              <div className="filter-group">
+                <label>📅 To</label>
+                <input type="date" className="filter-date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              </div>
+              <div className="filter-actions">
+                <button className="clear-filters" onClick={clearFilters}>Clear</button>
+              </div>
+            </div>
+
+            {filteredBookings.length === 0 && <p>No bookings match the filters.</p>}
+            {filteredBookings.map(b => (
+              <div key={b.id} className="booking-card">
+                <div className="booking-header">
+                  <h3>{b.facilityName}</h3>
+                  <span className={`status ${b.status.toLowerCase()}`}>{b.status}</span>
+                </div>
+                <p><strong>Purpose:</strong> {b.purpose}</p>
+                <p><strong>Date:</strong> {new Date(b.bookingStart).toLocaleDateString()}</p>
+                <p><strong>Time:</strong> {new Date(b.bookingStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(b.bookingEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                <p><strong>Attendees:</strong> {b.expectedAttendees}</p>
+                {b.status === 'PENDING' && (
+                  <div className="booking-actions">
+                    <button className="btn-primary" onClick={() => openEditModal(b)}>Edit</button>
+                    <button className="btn-danger" onClick={() => handleDelete(b.id)}>Delete</button>
+                  </div>
+                )}
+                {b.status === 'APPROVED' && (
+                  <div className="booking-actions">
+                    <button className="btn-danger" onClick={() => handleCancel(b.id)}>Cancel</button>
+                  </div>
+                )}
+                {b.status === 'REJECTED' && b.rejectionReason && (
+                  <p className="rejection-reason"><strong>Rejection reason:</strong> {b.rejectionReason}</p>
+                )}
+              </div>
+            ))}
+          </>
         )}
 
         {activeTab === 'notifications' && (
-          <div className="notifications-section">
-            <h2>Notifications</h2>
-            {notifications.length === 0 ? (
-              <p className="empty-message">No notifications yet</p>
-            ) : (
-              <div className="notifications-list">
-                {notifications.map(notification => (
-                  <div key={notification.id} className={`notification-item ${notification.isRead ? 'read' : 'unread'}`}>
-                    <div className="notification-content">
-                      <h4>{notification.title}</h4>
-                      <p>{notification.message}</p>
-                      <small>{new Date(notification.createdAt).toLocaleString()}</small>
-                    </div>
-                  </div>
-                ))}
+          <div className="notifications-list">
+            {notifications.length === 0 && <p>No notifications</p>}
+            {notifications.map(n => (
+              <div key={n.id} className={`notification-item ${n.isRead ? 'read' : 'unread'}`}>
+                <div className="notification-content">
+                  <h4>{n.title}</h4>
+                  <p>{n.message}</p>
+                  <small>{new Date(n.createdAt).toLocaleString()}</small>
+                </div>
               </div>
-            )}
+            ))}
           </div>
         )}
       </div>
 
-      <hr className="dashboard-divider" />
+      {/* Booking Modal */}
+      {modalOpen && selectedFacility && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{editingBooking ? 'Edit Booking' : 'New Booking'}</h2>
+              <button className="modal-close" onClick={closeModal}>&times;</button>
+            </div>
+            {error && <div className="error-message" style={{ color: 'red', padding: '0 2rem' }}>{error}</div>}
+            <form className="booking-form" onSubmit={handleSubmit}>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Date</label>
+                  <input type="date" name="date" value={form.date} onChange={handleChange} required />
+                </div>
+                <div className="form-group">
+                  <label>Start Time</label>
+                  <input type="time" name="startTime" value={form.startTime} onChange={handleChange} required />
+                </div>
+                <div className="form-group">
+                  <label>End Time</label>
+                  <input type="time" name="endTime" value={form.endTime} onChange={handleChange} required />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Expected Attendees</label>
+                  <input type="number" name="attendees" value={form.attendees} onChange={handleChange} placeholder="Number of attendees" required />
+                  <small>Max capacity: {selectedFacility.capacity}</small>
+                </div>
+                <div className="form-group">
+                  <label>Subject (optional)</label>
+                  <input type="text" name="subject" value={form.subject} onChange={handleChange} placeholder="e.g., Group Study" />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Purpose</label>
+                <textarea name="purpose" value={form.purpose} onChange={handleChange} placeholder="Describe the purpose of booking" rows="3" required />
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="btn-primary" disabled={submitting}>
+                  {submitting ? 'Saving...' : (editingBooking ? 'Update Booking' : 'Submit Booking')}
+                </button>
+                <button type="button" className="btn-secondary" onClick={closeModal}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
