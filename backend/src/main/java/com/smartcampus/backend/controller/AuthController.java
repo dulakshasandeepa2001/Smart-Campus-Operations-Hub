@@ -1,6 +1,7 @@
 package com.smartcampus.backend.controller;
 
 import com.smartcampus.backend.dto.ForgotPasswordRequest;
+import com.smartcampus.backend.dto.GoogleOAuthRequest;
 import com.smartcampus.backend.dto.LoginRequest;
 import com.smartcampus.backend.dto.ResetPasswordRequest;
 import com.smartcampus.backend.dto.SignupRequest;
@@ -50,6 +51,12 @@ public class AuthController {
     public ResponseEntity<AuthResponse> refreshToken(@RequestHeader("Authorization") String token) {
         String jwt = token.replace("Bearer ", "");
         AuthResponse response = authService.refreshToken(jwt);
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<AuthResponse> googleOAuth(@Valid @RequestBody GoogleOAuthRequest request) {
+        AuthResponse response = authService.googleOAuth(request);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
