@@ -265,7 +265,7 @@ export default function LecturerDashboard() {
     <div className="lecturer-dashboard">
       <div className="dashboard-header">
         <h1>Lecturer Dashboard</h1>
-        <p className="user-info">Welcome, Prof. {user?.fullName}</p>
+        <p className="user-info">Welcome, {user?.fullName}</p>
       </div>
 
       <div className="dashboard-stats">
@@ -571,6 +571,7 @@ export default function LecturerDashboard() {
           </div>
         </div>
       )}
+      <hr className="dashboard-divider" />
     </div>
   );
 }

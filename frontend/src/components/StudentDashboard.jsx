@@ -398,6 +398,8 @@ export default function StudentDashboard() {
           </div>
         )}
       </div>
+
+      <hr className="dashboard-divider" />
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 
 export const useAuthStore = create(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       token: null,
       isAuthenticated: false,
@@ -23,12 +23,22 @@ export const useAuthStore = create(
           isAuthenticated: true,
         }),
 
-      logout: () =>
+      logout: () => {
+        // Clear Zustand state first
         set({
           user: null,
           token: null,
           isAuthenticated: false,
-        }),
+        });
+
+        // Then clear localStorage
+        localStorage.removeItem('auth-store');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        
+        // Dispatch logout event for cross-tab synchronization
+        window.dispatchEvent(new Event('logout'));
+      },
 
       setLoading: (loading) => set({ loading }),
     }),
@@ -42,3 +52,30 @@ export const useAuthStore = create(
     }
   )
 );
+
+// Listen for logout events from other tabs
+if (typeof window !== 'undefined') {
+  // Listen for storage changes from other tabs
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'auth-store' && (!e.newValue || e.newValue === '')) {
+      // Auth store was cleared in another tab
+      const state = useAuthStore.getState();
+      state.set?.({
+        user: null,
+        token: null,
+        isAuthenticated: false,
+      }) || useAuthStore.setState({
+        user: null,
+        token: null,
+        isAuthenticated: false,
+      });
+    }
+  });
+
+  // Listen for custom logout event from current tab
+  window.addEventListener('logout', () => {
+    // This ensures immediate update in same tab
+    // The logout() call already handles state updates
+  });
+}
+
