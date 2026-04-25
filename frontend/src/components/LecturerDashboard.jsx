@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { apiService } from '../services/apiService';
 import '../styles/dashboards.css';
 
 export default function LecturerDashboard() {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
   const [facilities, setFacilities] = useState([]);
   const [myBookings, setMyBookings] = useState([]);
   const [notifications, setNotifications] = useState([]);
@@ -345,12 +347,20 @@ export default function LecturerDashboard() {
 
         {activeTab === 'classes' && (
           <div className="classes-section">
-            <h2>Class Bookings</h2>
+            <div className="section-header">
+              <h2>Class Bookings</h2>
+              <button className="btn-secondary history-button" onClick={() => navigate('/dashboard/lecturer/history')}>
+                📚 History
+              </button>
+            </div>
             {myBookings.length === 0 ? (
               <p className="empty-message">No class bookings yet. Request one through the system.</p>
             ) : (
               <div className="classes-list">
-                {myBookings.map(booking => (
+                {myBookings
+                  .sort((a, b) => new Date(b.createdAt || b.bookingStart) - new Date(a.createdAt || a.bookingStart))
+                  .slice(0, 3)
+                  .map(booking => (
                   <div key={booking.id} className={`class-card ${booking.status.toLowerCase()}`}>
                     <div className="class-header">
                       <h3>{booking.facilityName}</h3>
