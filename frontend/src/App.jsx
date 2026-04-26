@@ -9,6 +9,7 @@ import AdminDashboard from './components/AdminDashboard';
 import LecturerDashboard from './components/LecturerDashboard';
 import TechnicianDashboard from './components/TechnicianDashboard';
 import StudentDashboard from './components/StudentDashboard';
+import BookingsHistory from './components/BookingsHistory';
 import PrivateRoute from './components/PrivateRoute';
 import './App.css';
 
@@ -42,6 +43,14 @@ function App() {
           element={
             <PrivateRoute requiredRole="LECTURER">
               <LecturerDashboard />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/dashboard/lecturer/history"
+          element={
+            <PrivateRoute requiredRole="LECTURER">
+              <BookingsHistory />
             </PrivateRoute>
           }
         />

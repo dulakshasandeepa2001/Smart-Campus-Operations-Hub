@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +56,13 @@ public class BookingController {
         return new ResponseEntity<>(bookings, HttpStatus.OK);
     }
 
+    @GetMapping("/admin/all")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<List<BookingDTO>> getAllBookings() {
+        List<BookingDTO> bookings = bookingService.getAllBookings();
+        return new ResponseEntity<>(bookings, HttpStatus.OK);
+    }
+
     @PutMapping("/{bookingId}")
     public ResponseEntity<BookingDTO> updateBooking(
             @PathVariable String bookingId,
@@ -74,8 +82,10 @@ public class BookingController {
     }
 
     @PutMapping("/{bookingId}/cancel")
-    public ResponseEntity<BookingDTO> cancelBooking(@PathVariable String bookingId) {
-        BookingDTO booking = bookingService.cancelBooking(bookingId);
+    public ResponseEntity<BookingDTO> cancelBooking(
+            @PathVariable String bookingId,
+            @RequestHeader("X-User-Id") String userId) {
+        BookingDTO booking = bookingService.cancelBooking(userId, bookingId);
         return new ResponseEntity<>(booking, HttpStatus.OK);
     }
 

@@ -1,18 +1,55 @@
 import { useState, useEffect } from 'react';
+import { useAuthStore } from '../store/authStore';
 import { useNotificationStore } from '../store/notificationStore';
 import '../styles/notification.css';
 
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
-  const { notifications, unreadCount, markAsRead, clearNotifications } = useNotificationStore();
+  const { user } = useAuthStore();
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    startPolling,
+    stopPolling,
+  } = useNotificationStore();
+
+  // Initialize polling when component mounts and user is available
+  useEffect(() => {
+    if (user?.id) {
+      startPolling(user.id, 8000); // Poll every 8 seconds
+      
+      return () => {
+        stopPolling();
+      };
+    }
+  }, [user?.id, startPolling, stopPolling]);
 
   const toggleDropdown = () => {
     setIsOpen(!isOpen);
-    if (!isOpen && unreadCount > 0) {
-      markAsRead();
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (user?.id) {
+      await markAllAsRead(user.id);
     }
   };
 
+  const handleMarkAsRead = async (notificationId, isRead) => {
+    if (!isRead) {
+      await markAsRead(notificationId);
+    }
+  };
+
+  const handleDeleteNotification = (e, notificationId) => {
+    e.stopPropagation();
+    deleteNotification(notificationId);
+  };
+
+  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!event.target.closest('.notification-bell-container')) {
@@ -20,35 +57,42 @@ export default function NotificationBell() {
       }
     };
 
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
+    if (isOpen) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [isOpen]);
 
   return (
     <div className="notification-bell-container">
-      <button className="notification-bell" onClick={toggleDropdown}>
+      <button className="notification-bell" onClick={toggleDropdown} title="Notifications">
         🔔
         {unreadCount > 0 && (
-          <span className="notification-badge">{unreadCount}</span>
+          <span className="notification-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
         )}
       </button>
 
       {isOpen && (
         <div className="notification-dropdown">
           <div className="notification-header">
-            <h3>Notifications</h3>
+            <h3>Notifications {loading && <span className="spinner">●</span>}</h3>
             {notifications.length > 0 && (
-              <button 
+              <button
                 className="clear-btn"
-                onClick={clearNotifications}
+                onClick={handleMarkAllAsRead}
+                title="Mark all as read"
               >
-                Clear All
+                Mark all read
               </button>
             )}
           </div>
 
           <div className="notification-list">
-            {notifications.length === 0 ? (
+            {loading && notifications.length === 0 ? (
+              <div className="loading-state">
+                <p>Loading notifications...</p>
+              </div>
+            ) : notifications.length === 0 ? (
               <div className="no-notifications">
                 <p>No notifications</p>
               </div>
@@ -57,6 +101,7 @@ export default function NotificationBell() {
                 <div
                   key={notification.id}
                   className={`notification-item ${notification.read ? 'read' : 'unread'}`}
+                  onClick={() => handleMarkAsRead(notification.id, notification.read)}
                 >
                   <div className="notification-icon">
                     {notification.type === 'booking' && '📅'}
@@ -69,6 +114,13 @@ export default function NotificationBell() {
                     <p className="notification-message">{notification.message}</p>
                     <span className="notification-time">{notification.timestamp}</span>
                   </div>
+                  <button
+                    className="delete-btn"
+                    onClick={(e) => handleDeleteNotification(e, notification.id)}
+                    title="Delete notification"
+                  >
+                    ✕
+                  </button>
                 </div>
               ))
             )}

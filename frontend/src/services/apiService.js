@@ -1,91 +1,148 @@
+// frontend/src/services/apiService.js
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
 const API_URL = 'http://localhost:8080/api';
 
-const PUBLIC_API_PATHS = [
+/**
+ * Public endpoints that don't require auth
+ */
+const PUBLIC_PATHS = [
   '/auth/signup',
   '/auth/login',
+  '/auth/google',
   '/auth/forgot-password',
   '/auth/reset-password',
   '/invitations/accept',
 ];
 
-const INVITATION_TOKEN_PATH = /^\/invitations\/[0-9a-fA-F-]{36}$/;
+const INVITATION_REGEX = /^\/invitations\/[0-9a-fA-F-]{36}$/;
 
-const getRequestPath = (url = '') => url.split('?')[0];
+const normalizePath = (url = '') => url.split('?')[0];
 
-const isPublicApiPath = (url = '') => {
-  const requestPath = getRequestPath(url);
-  return PUBLIC_API_PATHS.includes(requestPath) || INVITATION_TOKEN_PATH.test(requestPath);
+const isPublicPath = (url = '') => {
+  const path = normalizePath(url);
+  return PUBLIC_PATHS.includes(path) || INVITATION_REGEX.test(path);
 };
 
-const apiClient = axios.create({
+const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Add token and user ID to requests
-apiClient.interceptors.request.use(
+/**
+ * REQUEST INTERCEPTOR
+ */
+api.interceptors.request.use(
   (config) => {
-    const requestPath = getRequestPath(config.url || '');
-    const isPublicRequest = isPublicApiPath(requestPath);
+    const path = normalizePath(config.url || '');
     const { token, user } = useAuthStore.getState();
 
     config.headers = config.headers || {};
 
-    if (isPublicRequest) {
+    // Skip auth for public APIs
+    if (isPublicPath(path)) {
       delete config.headers.Authorization;
       delete config.headers['X-User-Id'];
       return config;
     }
 
+    // Attach token
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    if (user && user.id) {
+
+    // Attach user ID (backend dependency in your system)
+    if (user?.id) {
       config.headers['X-User-Id'] = user.id;
     }
+
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Handle responses
-apiClient.interceptors.response.use(
+/**
+ * RESPONSE INTERCEPTOR
+ */
+api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const requestPath = getRequestPath(error.config?.url || '');
+    const path = normalizePath(error.config?.url || '');
+    const status = error.response?.status;
 
-    if (error.response?.status === 401 && !isPublicApiPath(requestPath)) {
+    // Only logout on 401 if it's from a critical auth endpoint
+    // This prevents logging out when user lacks permissions for specific endpoints
+    const criticalAuthPaths = ['/auth/me', '/auth/validate', '/auth/refresh', '/profile'];
+    const isCriticalAuthPath = criticalAuthPaths.some(p => path.includes(p));
+
+    if (status === 401 && !isPublicPath(path) && isCriticalAuthPath) {
       useAuthStore.getState().logout();
     }
+
     return Promise.reject(error);
   }
 );
 
+/**
+ * AUTH SERVICE
+ */
 export const authService = {
-  signup: (data) => apiClient.post('/auth/signup', data),
-  login: (data) => apiClient.post('/auth/login', data),
-  forgotPassword: (data) => apiClient.post('/auth/forgot-password', data),
-  resetPassword: (data) => apiClient.post('/auth/reset-password', data),
-  refreshToken: () => apiClient.post('/auth/refresh-token'),
+  signup: (data) => api.post('/auth/signup', data),
+  login: (data) => api.post('/auth/login', data),
+  forgotPassword: (data) => api.post('/auth/forgot-password', data),
+  resetPassword: (data) => api.post('/auth/reset-password', data),
+  refreshToken: () => api.post('/auth/refresh-token'),
 };
 
+/**
+ * FACILITY SERVICE
+ */
 export const facilityService = {
-  getAllFacilities: () => apiClient.get('/facilities'),
-  getFacilityById: (id) => apiClient.get(`/facilities/${id}`),
-  searchFacilities: (keyword) => apiClient.get('/facilities/search', { params: { keyword } }),
-  getFacilitiesByType: (type) => apiClient.get(`/facilities/type/${type}`),
-  getFacilitiesByStatus: (status) => apiClient.get(`/facilities/status/${status}`),
-  getFacilitiesByCapacity: (capacity) => apiClient.get(`/facilities/capacity/${capacity}`),
-  createFacility: (data) => apiClient.post('/facilities', data),
-  updateFacility: (id, data) => apiClient.put(`/facilities/${id}`, data),
-  deleteFacility: (id) => apiClient.delete(`/facilities/${id}`),
+  getAll: () => api.get('/facilities'),
+  getById: (id) => api.get(`/facilities/${id}`),
+  search: (keyword) =>
+    api.get('/facilities/search', { params: { keyword } }),
+  getByType: (type) => api.get(`/facilities/type/${type}`),
+  getByStatus: (status) => api.get(`/facilities/status/${status}`),
+  create: (data) => api.post('/facilities', data),
+  update: (id, data) => api.put(`/facilities/${id}`, data),
+  remove: (id) => api.delete(`/facilities/${id}`),
 };
 
-export const apiService = apiClient;
+/**
+ * BOOKING SERVICE (NEW - IMPORTANT CLEANUP)
+ */
+export const bookingService = {
+  getUserBookings: (userId) => api.get(`/bookings/user/${userId}`),
+  getFacilityBookings: (facilityId) =>
+    api.get(`/bookings/facility/${facilityId}`),
+  create: (data) => api.post('/bookings', data),
+  update: (id, data) => api.put(`/bookings/${id}`, data),
+  cancel: (id) => api.put(`/bookings/${id}/cancel`),
+  delete: (id) => api.delete(`/bookings/${id}`),
+};
 
-export default apiClient;
+/**
+ * NOTIFICATION SERVICE
+ */
+export const notificationService = {
+  getUserNotifications: (userId) =>
+    api.get(`/notifications/user/${userId}`),
+  getUnreadNotifications: (userId) =>
+    api.get(`/notifications/user/${userId}/unread`),
+  getUnreadCount: (userId) =>
+    api.get(`/notifications/user/${userId}/unread-count`),
+  markAsRead: (notificationId) =>
+    api.put(`/notifications/${notificationId}/read`),
+  markAllAsRead: (userId) =>
+    api.put(`/notifications/user/${userId}/read-all`),
+  deleteNotification: (notificationId) =>
+    api.delete(`/notifications/${notificationId}`),
+};
+
+export const apiService = api;
+
+export default api;
