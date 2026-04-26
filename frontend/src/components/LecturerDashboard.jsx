@@ -4,7 +4,8 @@ import { useAuthStore } from '../store/authStore';
 import {
   facilityService,
   bookingService,
-  notificationService
+  notificationService,
+  apiService
 } from '../services/apiService';
 import '../styles/dashboards.css';
 
@@ -15,8 +16,10 @@ export default function LecturerDashboard() {
   const [facilities, setFacilities] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [tickets, setTickets] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
+  const [showTicketForm, setShowTicketForm] = useState(false);
 
   // Filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -37,20 +40,32 @@ export default function LecturerDashboard() {
     subject: ''
   });
 
+  const [ticketForm, setTicketForm] = useState({
+    title: '',
+    description: '',
+    category: 'FACILITY',
+    priority: 'MEDIUM'
+  });
+
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [ticketError, setTicketError] = useState('');
+  const [ticketSuccess, setTicketSuccess] = useState('');
+  const [ticketSubmitting, setTicketSubmitting] = useState(false);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [facRes, bookRes, notiRes] = await Promise.all([
+      const [facRes, bookRes, notiRes, ticketsRes] = await Promise.all([
         facilityService.getAll(),
         bookingService.getUserBookings(user?.id),
-        notificationService.getUserNotifications(user?.id)
+        notificationService.getUserNotifications(user?.id),
+        apiService.get(`/tickets/student/${user?.id}`)
       ]);
       setFacilities(facRes.data);
       setBookings(bookRes.data);
       setNotifications(notiRes.data);
+      setTickets(ticketsRes.data?.tickets || []);
     } catch (err) {
       console.error('Dashboard load error:', err);
     } finally {
@@ -211,11 +226,75 @@ export default function LecturerDashboard() {
     }
   };
 
+  const handleTicketChange = (e) => {
+    const { name, value } = e.target;
+    setTicketForm(prev => ({ ...prev, [name]: value }));
+    setTicketError('');
+  };
+
+  const validateTicket = () => {
+    if (!ticketForm.title || !ticketForm.description) {
+      return 'Title and description are required';
+    }
+    if (ticketForm.title.length < 3 || ticketForm.title.length > 200) {
+      return 'Title must be between 3 and 200 characters';
+    }
+    if (ticketForm.description.length < 10 || ticketForm.description.length > 5000) {
+      return 'Description must be between 10 and 5000 characters';
+    }
+    return null;
+  };
+
+  const handleCreateTicket = async (e) => {
+    e.preventDefault();
+    const validationError = validateTicket();
+    if (validationError) {
+      setTicketError(validationError);
+      return;
+    }
+    
+    try {
+      setTicketSubmitting(true);
+      setTicketError('');
+      
+      if (!user?.id) {
+        setTicketError('User not authenticated. Please refresh and try again.');
+        setTicketSubmitting(false);
+        return;
+      }
+      
+      const ticketData = {
+        title: ticketForm.title,
+        description: ticketForm.description,
+        category: ticketForm.category,
+        priority: ticketForm.priority
+      };
+      
+      const response = await apiService.post(`/tickets/create?userId=${user.id}`, ticketData);
+      
+      setTicketSuccess('Ticket created successfully!');
+      setTicketForm({ title: '', description: '', category: 'FACILITY', priority: 'MEDIUM' });
+      setShowTicketForm(false);
+      
+      setTimeout(() => {
+        setTicketSuccess('');
+        loadData();
+      }, 2000);
+    } catch (err) {
+      console.error('Ticket creation error:', err);
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to create ticket';
+      setTicketError(errorMsg);
+    } finally {
+      setTicketSubmitting(false);
+    }
+  };
+
   const stats = {
     total: bookings.length,
     approved: bookings.filter(b => b.status === 'APPROVED').length,
     lectureHalls: facilities.filter(f => f.type === 'LECTURE_HALL').length,
-    labs: facilities.filter(f => f.type === 'LABORATORY').length
+    labs: facilities.filter(f => f.type === 'LABORATORY').length,
+    myTickets: tickets.length
   };
 
   if (loading) {
@@ -234,12 +313,14 @@ export default function LecturerDashboard() {
         <div className="stat-card"><h3>{stats.approved}</h3><p>Approved</p></div>
         <div className="stat-card"><h3>{stats.lectureHalls}</h3><p>Lecture Halls</p></div>
         <div className="stat-card"><h3>{stats.labs}</h3><p>Laboratories</p></div>
+        <div className="stat-card"><h3>{stats.myTickets}</h3><p>My Tickets</p></div>
       </div>
 
       <div className="dashboard-tabs">
         <button className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>Overview</button>
         <button className={`tab-button ${activeTab === 'facilities' ? 'active' : ''}`} onClick={() => setActiveTab('facilities')}>Facilities</button>
         <button className={`tab-button ${activeTab === 'bookings' ? 'active' : ''}`} onClick={() => setActiveTab('bookings')}>My Bookings</button>
+        <button className={`tab-button ${activeTab === 'tickets' ? 'active' : ''}`} onClick={() => setActiveTab('tickets')}>My Tickets ({tickets.length})</button>
         <button className={`tab-button ${activeTab === 'notifications' ? 'active' : ''}`} onClick={() => setActiveTab('notifications')}>Notifications</button>
       </div>
 
@@ -350,6 +431,135 @@ export default function LecturerDashboard() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {activeTab === 'tickets' && (
+          <div className="tickets-section">
+            {ticketSuccess && <div style={{padding: '1rem', background: '#d4edda', color: '#155724', borderRadius: '4px', marginBottom: '1rem'}}>{ticketSuccess}</div>}
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2>My Tickets ({tickets.length})</h2>
+              <button 
+                className="btn-primary"
+                onClick={() => setShowTicketForm(!showTicketForm)}
+              >
+                {showTicketForm ? '✕ Close' : '+ Create Ticket'}
+              </button>
+            </div>
+
+            {showTicketForm && (
+              <div style={{ background: '#f9f9f9', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid #ddd' }}>
+                <h3>Create New Ticket</h3>
+                {ticketError && <div style={{ padding: '0.75rem', background: '#f8d7da', color: '#721c24', borderRadius: '4px', marginBottom: '1rem' }}>{ticketError}</div>}
+                
+                <form onSubmit={handleCreateTicket}>
+                  <div style={{ marginBottom: '1rem' }}>
+                    <label><strong>Title *</strong></label>
+                    <input
+                      type="text"
+                      name="title"
+                      value={ticketForm.title}
+                      onChange={handleTicketChange}
+                      placeholder="Brief title of the issue"
+                      maxLength="200"
+                      required
+                      style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ddd' }}
+                    />
+                    <small style={{ color: '#666' }}>{ticketForm.title.length}/200</small>
+                  </div>
+
+                  <div style={{ marginBottom: '1rem' }}>
+                    <label><strong>Description *</strong></label>
+                    <textarea
+                      name="description"
+                      value={ticketForm.description}
+                      onChange={handleTicketChange}
+                      placeholder="Detailed description of the issue (min 10 characters)"
+                      rows="4"
+                      maxLength="5000"
+                      required
+                      style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ddd', fontFamily: 'Arial, sans-serif' }}
+                    />
+                    <small style={{ color: '#666' }}>{ticketForm.description.length}/5000</small>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                    <div>
+                      <label><strong>Category</strong></label>
+                      <select
+                        name="category"
+                        value={ticketForm.category}
+                        onChange={handleTicketChange}
+                        style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ddd' }}
+                      >
+                        <option value="FACILITY">Facility Issue</option>
+                        <option value="IT">IT Support</option>
+                        <option value="MAINTENANCE">Maintenance</option>
+                        <option value="OTHER">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label><strong>Priority</strong></label>
+                      <select
+                        name="priority"
+                        value={ticketForm.priority}
+                        onChange={handleTicketChange}
+                        style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ddd' }}
+                      >
+                        <option value="LOW">Low</option>
+                        <option value="MEDIUM">Medium</option>
+                        <option value="HIGH">High</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      type="submit"
+                      disabled={ticketSubmitting}
+                      className="btn-primary"
+                      style={{ opacity: ticketSubmitting ? 0.6 : 1 }}
+                    >
+                      {ticketSubmitting ? 'Creating...' : 'Create Ticket'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowTicketForm(false);
+                        setTicketForm({ title: '', description: '', category: 'FACILITY', priority: 'MEDIUM' });
+                        setTicketError('');
+                      }}
+                      style={{ padding: '0.5rem 1rem', borderRadius: '4px', background: '#6c757d', color: 'white', border: 'none', cursor: 'pointer' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {tickets.length === 0 ? (
+              <p style={{ textAlign: 'center', color: '#666', padding: '2rem' }}>No tickets created yet</p>
+            ) : (
+              <div className="tickets-list">
+                {tickets.map(ticket => (
+                  <div key={ticket.id} style={{ background: 'white', padding: '1rem', border: '1px solid #ddd', borderRadius: '8px', marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                      <div style={{ flex: 1 }}>
+                        <h4>{ticket.title}</h4>
+                        <p style={{ color: '#666', marginBottom: '0.5rem' }}>{ticket.description}</p>
+                        <div style={{ display: 'flex', gap: '1rem', fontSize: '0.9rem' }}>
+                          <span className={`priority-badge ${ticket.priority?.toLowerCase()}`}>{ticket.priority}</span>
+                          <span className={`status-badge ${ticket.status?.toLowerCase()}`}>{ticket.status}</span>
+                          <span style={{ color: '#999' }}>{new Date(ticket.createdAt).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

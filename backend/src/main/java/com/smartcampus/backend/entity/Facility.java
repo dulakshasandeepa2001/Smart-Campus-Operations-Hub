@@ -112,7 +112,7 @@ public class Facility {
     }
 
     public enum FacilityType {
-        LECTURE_HALL, LAB, MEETING_ROOM, AUDITORIUM, EQUIPMENT
+        LECTURE_HALL, LABORATORY, MEETING_ROOM, AUDITORIUM, EQUIPMENT, STUDY_AREA
     }
 
     public enum FacilityStatus {

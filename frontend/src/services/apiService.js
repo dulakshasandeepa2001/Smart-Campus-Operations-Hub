@@ -71,8 +71,14 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const path = normalizePath(error.config?.url || '');
+    const status = error.response?.status;
 
-    if (error.response?.status === 401 && !isPublicPath(path)) {
+    // Only logout on 401 if it's from a critical auth endpoint
+    // This prevents logging out when user lacks permissions for specific endpoints
+    const criticalAuthPaths = ['/auth/me', '/auth/validate', '/auth/refresh', '/profile'];
+    const isCriticalAuthPath = criticalAuthPaths.some(p => path.includes(p));
+
+    if (status === 401 && !isPublicPath(path) && isCriticalAuthPath) {
       useAuthStore.getState().logout();
     }
 
@@ -125,6 +131,16 @@ export const bookingService = {
 export const notificationService = {
   getUserNotifications: (userId) =>
     api.get(`/notifications/user/${userId}`),
+  getUnreadNotifications: (userId) =>
+    api.get(`/notifications/user/${userId}/unread`),
+  getUnreadCount: (userId) =>
+    api.get(`/notifications/user/${userId}/unread-count`),
+  markAsRead: (notificationId) =>
+    api.put(`/notifications/${notificationId}/read`),
+  markAllAsRead: (userId) =>
+    api.put(`/notifications/user/${userId}/read-all`),
+  deleteNotification: (notificationId) =>
+    api.delete(`/notifications/${notificationId}`),
 };
 
 export const apiService = api;

@@ -9,8 +9,16 @@ export default function AdminDashboard() {
   const [facilities, setFacilities] = useState([]);
   const [pendingBookings, setPendingBookings] = useState([]);
   const [allBookings, setAllBookings] = useState([]);
+  const [tickets, setTickets] = useState([]);
+  const [unassignedTickets, setUnassignedTickets] = useState([]);
+  const [technicians, setTechnicians] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [ticketFilter, setTicketFilter] = useState('all'); // all, unassigned, open, in-progress, resolved
+  const [assigningTicket, setAssigningTicket] = useState(null);
+  const [selectedTechnician, setSelectedTechnician] = useState('');
   const [newFacility, setNewFacility] = useState({
     name: '',
     type: 'LECTURE_HALL',
@@ -18,7 +26,9 @@ export default function AdminDashboard() {
     location: '',
     building: '',
     floor: '',
-    status: 'ACTIVE'
+    status: 'ACTIVE',
+    description: '',
+    equipment: ''
   });
 
   useEffect(() => {
@@ -28,25 +38,81 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [facilitiesRes, pendingBookingsRes, allBookingsRes] = await Promise.all([
+      const [facilitiesRes, pendingBookingsRes, allBookingsRes, ticketsRes, unassignedRes, techniciansRes] = await Promise.all([
         apiService.get('/facilities'),
         apiService.get('/bookings/admin/pending'),
-        apiService.get('/bookings/admin/all')
+        apiService.get('/bookings/admin/all'),
+        apiService.get('/tickets/all'),
+        apiService.get('/tickets/unassigned'),
+        apiService.get('/tickets/technicians') // Fixed endpoint path
       ]);
       setFacilities(facilitiesRes.data);
       setPendingBookings(pendingBookingsRes.data);
       setAllBookings(allBookingsRes.data);
+      setTickets(ticketsRes.data?.tickets || []);
+      setUnassignedTickets(unassignedRes.data?.tickets || []);
+      setTechnicians(techniciansRes.data?.technicians || []); // Updated response field
     } catch (error) {
       console.error('Error fetching data:', error);
+      // Don't fail the entire dashboard if technicians fetch fails
+      setFacilities([]);
+      setPendingBookings([]);
+      setAllBookings([]);
+      setTickets([]);
+      setUnassignedTickets([]);
+      setTechnicians([]); // Set empty technicians list on error
     } finally {
       setLoading(false);
     }
   };
 
+  const handleAssignTicket = async (ticketId) => {
+    if (!selectedTechnician) {
+      alert('Please select a technician');
+      return;
+    }
+    try {
+      await apiService.put(`/tickets/${ticketId}/assign?assignedToId=${selectedTechnician}`);
+      alert('Ticket assigned successfully!');
+      setAssigningTicket(null);
+      setSelectedTechnician('');
+      fetchData();
+    } catch (error) {
+      alert('Error assigning ticket: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const handleUpdateTicketStatus = async (ticketId, newStatus) => {
+    try {
+      await apiService.put(`/tickets/${ticketId}/status?status=${newStatus}`);
+      alert('Ticket status updated successfully!');
+      fetchData();
+    } catch (error) {
+      alert('Error updating ticket: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const getFilteredTickets = () => {
+    if (ticketFilter === 'unassigned') {
+      return unassignedTickets;
+    }
+    return tickets.filter(t => {
+      if (ticketFilter === 'all') return true;
+      return t.status === ticketFilter.toUpperCase();
+    });
+  };
+
   const handleAddFacility = async (e) => {
     e.preventDefault();
     try {
-      await apiService.post('/facilities', newFacility);
+      if (editingId) {
+        await apiService.put(`/facilities/${editingId}`, newFacility);
+        alert('Facility updated successfully!');
+        setEditingId(null);
+      } else {
+        await apiService.post('/facilities', newFacility);
+        alert('Facility added successfully!');
+      }
       setNewFacility({
         name: '',
         type: 'LECTURE_HALL',
@@ -54,12 +120,47 @@ export default function AdminDashboard() {
         location: '',
         building: '',
         floor: '',
-        status: 'ACTIVE'
+        status: 'ACTIVE',
+        description: '',
+        equipment: ''
       });
       fetchData();
-      alert('Facility added successfully!');
     } catch (error) {
-      alert('Error adding facility: ' + error.message);
+      alert('Error: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const handleEditFacility = (facility) => {
+    setNewFacility(facility);
+    setEditingId(facility.id);
+    setActiveTab('facilities');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setNewFacility({
+      name: '',
+      type: 'LECTURE_HALL',
+      capacity: 0,
+      location: '',
+      building: '',
+      floor: '',
+      status: 'ACTIVE',
+      description: '',
+      equipment: ''
+    });
+  };
+
+  const handleDeleteFacility = async (facilityId) => {
+    if (window.confirm('Are you sure you want to delete this facility?')) {
+      try {
+        await apiService.delete(`/facilities/${facilityId}`);
+        alert('Facility deleted successfully!');
+        setShowDeleteConfirm(null);
+        fetchData();
+      } catch (error) {
+        alert('Error deleting facility: ' + (error.response?.data?.message || error.message));
+      }
     }
   };
 
@@ -144,6 +245,12 @@ export default function AdminDashboard() {
           Overview
         </button>
         <button
+          className={`tab-button ${activeTab === 'tickets' ? 'active' : ''}`}
+          onClick={() => setActiveTab('tickets')}
+        >
+          Tickets ({unassignedTickets.length} Unassigned)
+        </button>
+        <button
           className={`tab-button ${activeTab === 'facilities' ? 'active' : ''}`}
           onClick={() => setActiveTab('facilities')}
         >
@@ -174,6 +281,13 @@ export default function AdminDashboard() {
           <div className="overview-section">
             <h2>System Overview</h2>
             <div className="overview-card">
+              <h3>Ticket Summary</h3>
+              <ul>
+                <li>Total Tickets: {tickets.length}</li>
+                <li>Unassigned: {unassignedTickets.length}</li>
+              </ul>
+            </div>
+            <div className="overview-card">
               <h3>Facility Status</h3>
               <ul>
                 {facilities.slice(0, 5).map(f => (
@@ -184,9 +298,114 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {activeTab === 'tickets' && (
+          <div className="tickets-section">
+            <h2>Ticket Management</h2>
+            <div className="ticket-filters">
+              <label>Filter by Status: </label>
+              <select value={ticketFilter} onChange={(e) => setTicketFilter(e.target.value)}>
+                <option value="all">All Tickets</option>
+                <option value="unassigned">Unassigned</option>
+                <option value="open">Open</option>
+                <option value="in-progress">In Progress</option>
+                <option value="resolved">Resolved</option>
+              </select>
+            </div>
+            
+            {getFilteredTickets().length === 0 ? (
+              <p className="no-data">No tickets found</p>
+            ) : (
+              <div className="tickets-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Title</th>
+                      <th>Created By</th>
+                      <th>Priority</th>
+                      <th>Status</th>
+                      <th>Assigned To</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {getFilteredTickets().map(ticket => (
+                      <tr key={ticket.id}>
+                        <td>{ticket.id?.substring(0, 8)}...</td>
+                        <td>{ticket.title}</td>
+                        <td>{ticket.createdByName}</td>
+                        <td><span className={`priority-badge ${ticket.priority?.toLowerCase()}`}>{ticket.priority}</span></td>
+                        <td><span className={`status-badge ${ticket.status?.toLowerCase()}`}>{ticket.status}</span></td>
+                        <td>{ticket.assignedToName || 'Unassigned'}</td>
+                        <td>
+                          {!ticket.assignedToName && (
+                            <button 
+                              className="btn-small btn-assign"
+                              onClick={() => setAssigningTicket(ticket.id)}
+                            >
+                              Assign
+                            </button>
+                          )}
+                          {ticket.assignedToName && (
+                            <>
+                              <button 
+                                className="btn-small btn-status"
+                                onClick={() => handleUpdateTicketStatus(ticket.id, 'RESOLVED')}
+                              >
+                                Resolve
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {assigningTicket && (
+              <div className="modal-overlay">
+                <div className="modal">
+                  <h3>Assign Ticket to Technician</h3>
+                  <select 
+                    value={selectedTechnician} 
+                    onChange={(e) => setSelectedTechnician(e.target.value)}
+                    className="form-control"
+                  >
+                    <option value="">-- Select Technician --</option>
+                    {technicians.map(tech => (
+                      <option key={tech.id} value={tech.id}>
+                        {tech.fullName}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="modal-buttons">
+                    <button 
+                      className="btn btn-primary"
+                      onClick={() => handleAssignTicket(assigningTicket)}
+                    >
+                      Assign
+                    </button>
+                    <button 
+                      className="btn btn-secondary"
+                      onClick={() => {
+                        setAssigningTicket(null);
+                        setSelectedTechnician('');
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === 'facilities' && (
           <div className="facilities-section">
-            <h2>Add New Facility</h2>
+            <h2>{editingId ? 'Edit Facility' : 'Add New Facility'}</h2>
             <form className="facility-form" onSubmit={handleAddFacility}>
               <div className="form-group">
                 <label>Facility Name *</label>
@@ -196,6 +415,15 @@ export default function AdminDashboard() {
                   value={newFacility.name}
                   onChange={(e) => setNewFacility({ ...newFacility, name: e.target.value })}
                   placeholder="Enter facility name"
+                />
+              </div>
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  value={newFacility.description || ''}
+                  onChange={(e) => setNewFacility({ ...newFacility, description: e.target.value })}
+                  placeholder="Enter facility description"
+                  rows="3"
                 />
               </div>
               <div className="form-row">
@@ -244,20 +472,89 @@ export default function AdminDashboard() {
                   />
                 </div>
               </div>
-              <button type="submit" className="btn-primary">Add Facility</button>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Status *</label>
+                  <select
+                    value={newFacility.status}
+                    onChange={(e) => setNewFacility({ ...newFacility, status: e.target.value })}
+                  >
+                    <option>ACTIVE</option>
+                    <option>INACTIVE</option>
+                    <option>MAINTENANCE</option>
+                    <option>OUT_OF_SERVICE</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Equipment</label>
+                  <input
+                    type="text"
+                    value={newFacility.equipment || ''}
+                    onChange={(e) => setNewFacility({ ...newFacility, equipment: e.target.value })}
+                    placeholder="e.g., Projector, Whiteboard"
+                  />
+                </div>
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="btn-primary">
+                  {editingId ? 'Update Facility' : 'Add Facility'}
+                </button>
+                {editingId && (
+                  <button 
+                    type="button" 
+                    className="btn-secondary"
+                    onClick={handleCancelEdit}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
             </form>
 
             <h2 style={{ marginTop: '2rem' }}>Existing Facilities</h2>
             <div className="facilities-list">
               {facilities.map(facility => (
                 <div key={facility.id} className="facility-item">
-                  <h3>{facility.name}</h3>
+                  <div className="facility-header">
+                    <h3>{facility.name}</h3>
+                    <span className={`status ${facility.status}`}>{facility.status}</span>
+                  </div>
+                  {facility.description && (
+                    <p><strong>Description:</strong> {facility.description}</p>
+                  )}
                   <p><strong>Type:</strong> {facility.type}</p>
                   <p><strong>Capacity:</strong> {facility.capacity} people</p>
-                  <p><strong>Location:</strong> {facility.location}</p>
-                  <p><strong>Status:</strong> <span className={`status ${facility.status}`}>{facility.status}</span></p>
+                  {facility.location && (
+                    <p><strong>Location:</strong> {facility.location}</p>
+                  )}
+                  {facility.building && (
+                    <p><strong>Building:</strong> {facility.building}</p>
+                  )}
+                  {facility.floor && (
+                    <p><strong>Floor:</strong> {facility.floor}</p>
+                  )}
+                  {facility.equipment && (
+                    <p><strong>Equipment:</strong> {facility.equipment}</p>
+                  )}
+                  <div className="facility-actions">
+                    <button 
+                      className="btn-small btn-edit"
+                      onClick={() => handleEditFacility(facility)}
+                    >
+                      ✎ Edit
+                    </button>
+                    <button 
+                      className="btn-small btn-delete"
+                      onClick={() => handleDeleteFacility(facility.id)}
+                    >
+                      🗑 Delete
+                    </button>
+                  </div>
                 </div>
               ))}
+              {facilities.length === 0 && (
+                <p className="no-data">No facilities found. Add one to get started!</p>
+              )}
             </div>
           </div>
         )}

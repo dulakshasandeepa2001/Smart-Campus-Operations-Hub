@@ -7,6 +7,7 @@ export default function TechnicianDashboard() {
   const { user } = useAuthStore();
   const [facilities, setFacilities] = useState([]);
   const [maintenanceTasks, setMaintenanceTasks] = useState([]);
+  const [assignedTickets, setAssignedTickets] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [selectedFacility, setSelectedFacility] = useState(null);
@@ -18,8 +19,12 @@ export default function TechnicianDashboard() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const facilitiesRes = await apiService.get('/facilities');
+      const [facilitiesRes, ticketsRes] = await Promise.all([
+        apiService.get('/facilities'),
+        apiService.get(`/tickets/assigned/${user?.id}`)
+      ]);
       setFacilities(facilitiesRes.data);
+      setAssignedTickets(ticketsRes.data?.tickets || []);
       
       // Simulate maintenance tasks
       const tasks = facilitiesRes.data
@@ -55,11 +60,23 @@ export default function TechnicianDashboard() {
     alert('Task marked as completed!');
   };
 
+  const handleUpdateTicketStatus = async (ticketId, newStatus) => {
+    try {
+      await apiService.put(`/tickets/${ticketId}/status?status=${newStatus}`);
+      alert('Ticket status updated!');
+      fetchData();
+    } catch (error) {
+      alert('Error updating ticket: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
   const stats = {
     totalFacilities: facilities.length,
     maintenanceNeeded: facilities.filter(f => f.status === 'MAINTENANCE').length,
     outOfService: facilities.filter(f => f.status === 'OUT_OF_SERVICE').length,
-    activeTasksCount: maintenanceTasks.filter(t => t.status === 'IN_PROGRESS').length
+    activeTasksCount: maintenanceTasks.filter(t => t.status === 'IN_PROGRESS').length,
+    assignedTickets: assignedTickets.length,
+    openTickets: assignedTickets.filter(t => t.status === 'OPEN' || t.status === 'IN_PROGRESS').length
   };
 
   if (loading) {
@@ -75,20 +92,20 @@ export default function TechnicianDashboard() {
 
       <div className="dashboard-stats">
         <div className="stat-card">
+          <h3>{stats.assignedTickets}</h3>
+          <p>Assigned Tickets</p>
+        </div>
+        <div className="stat-card alert">
+          <h3>{stats.openTickets}</h3>
+          <p>Open Tickets</p>
+        </div>
+        <div className="stat-card">
           <h3>{stats.totalFacilities}</h3>
           <p>Total Facilities</p>
         </div>
         <div className="stat-card alert">
           <h3>{stats.maintenanceNeeded}</h3>
           <p>Maintenance Needed</p>
-        </div>
-        <div className="stat-card alert">
-          <h3>{stats.outOfService}</h3>
-          <p>Out of Service</p>
-        </div>
-        <div className="stat-card">
-          <h3>{stats.activeTasksCount}</h3>
-          <p>Active Tasks</p>
         </div>
       </div>
 
@@ -98,6 +115,12 @@ export default function TechnicianDashboard() {
           onClick={() => setActiveTab('overview')}
         >
           Overview
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'tickets' ? 'active' : ''}`}
+          onClick={() => setActiveTab('tickets')}
+        >
+          My Tickets ({stats.assignedTickets})
         </button>
         <button
           className={`tab-button ${activeTab === 'tasks' ? 'active' : ''}`}
@@ -118,6 +141,25 @@ export default function TechnicianDashboard() {
           <div className="overview-section">
             <h2>System Health Overview</h2>
             <div className="overview-grid">
+              <div className="overview-card">
+                <h3>🎫 Your Assigned Tickets</h3>
+                <div className="ticket-summary">
+                  {assignedTickets
+                    .filter(t => t.status === 'OPEN' || t.status === 'IN_PROGRESS')
+                    .slice(0, 5)
+                    .map(ticket => (
+                      <div key={ticket.id} className={`ticket-item ${ticket.priority?.toLowerCase()}-priority`}>
+                        <strong>{ticket.title}</strong>
+                        <p>{ticket.description?.substring(0, 50)}...</p>
+                        <small>Status: {ticket.status}</small>
+                      </div>
+                    ))}
+                  {assignedTickets.filter(t => t.status === 'OPEN' || t.status === 'IN_PROGRESS').length === 0 && (
+                    <p className="empty-message">No open tickets</p>
+                  )}
+                </div>
+              </div>
+
               <div className="overview-card">
                 <h3>🔧 Priority Maintenance Tasks</h3>
                 <div className="task-summary">
@@ -159,6 +201,90 @@ export default function TechnicianDashboard() {
                 </ul>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'tickets' && (
+          <div className="tickets-section">
+            <h2>My Assigned Tickets</h2>
+            
+            {assignedTickets.length === 0 ? (
+              <p className="empty-message">No tickets assigned to you</p>
+            ) : (
+              <div>
+                <div className="tickets-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Description</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {assignedTickets.map(ticket => (
+                        <tr key={ticket.id}>
+                          <td>{ticket.id?.substring(0, 8)}...</td>
+                          <td><strong>{ticket.title}</strong></td>
+                          <td>{ticket.description?.substring(0, 50)}...</td>
+                          <td>
+                            <span className={`priority-badge ${ticket.priority?.toLowerCase()}`}>
+                              {ticket.priority}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`status-badge ${ticket.status?.toLowerCase()}`}>
+                              {ticket.status}
+                            </span>
+                          </td>
+                          <td>{new Date(ticket.createdAt).toLocaleDateString()}</td>
+                          <td>
+                            {ticket.status === 'OPEN' && (
+                              <button 
+                                className="btn-small btn-assign"
+                                onClick={() => handleUpdateTicketStatus(ticket.id, 'IN_PROGRESS')}
+                              >
+                                Start
+                              </button>
+                            )}
+                            {ticket.status === 'IN_PROGRESS' && (
+                              <button 
+                                className="btn-small btn-status"
+                                onClick={() => handleUpdateTicketStatus(ticket.id, 'RESOLVED')}
+                              >
+                                Resolve
+                              </button>
+                            )}
+                            {(ticket.status === 'RESOLVED' || ticket.status === 'CLOSED') && (
+                              <span className="btn-disabled">✓ {ticket.status}</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="ticket-summary-stats">
+                  <div className="stat">
+                    <span className="label">Open:</span>
+                    <span className="value">{assignedTickets.filter(t => t.status === 'OPEN').length}</span>
+                  </div>
+                  <div className="stat">
+                    <span className="label">In Progress:</span>
+                    <span className="value">{assignedTickets.filter(t => t.status === 'IN_PROGRESS').length}</span>
+                  </div>
+                  <div className="stat">
+                    <span className="label">Resolved:</span>
+                    <span className="value">{assignedTickets.filter(t => t.status === 'RESOLVED').length}</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
