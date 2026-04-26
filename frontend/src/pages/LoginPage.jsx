@@ -76,7 +76,12 @@ export default function LoginPage() {
   };
 
   const handleGoogleError = () => {
-    setError('Google login failed. Please try again.');
+    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!googleClientId) {
+      setError('Google OAuth not configured. Please check GOOGLE_OAUTH_SETUP_GUIDE.md for setup instructions.');
+    } else {
+      setError('Google login failed. Please check your configuration or try again.');
+    }
     setLoading(false);
   };
 
